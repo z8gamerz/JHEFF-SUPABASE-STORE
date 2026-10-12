@@ -59,6 +59,11 @@ export function UserForm({ userData, onSave, onClose }: UserFormProps) {
       return;
     }
 
+    if (formData.role === 'cashier' && formData.assignedBranchIds.length === 0 && branches.length > 0) {
+      setError('Please assign at least one branch to this cashier so their data access is properly isolated.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await onSave(formData);
@@ -181,31 +186,49 @@ export function UserForm({ userData, onSave, onClose }: UserFormProps) {
           </div>
 
           <div className="space-y-4">
-            <label className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest ml-4 flex items-center gap-2">
-              <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Assigned Branches
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {branches.map((branch) => (
-                <button
-                  key={branch.id}
-                  type="button"
-                  onClick={() => toggleBranch(branch.id)}
-                  className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
-                    formData.assignedBranchIds.includes(branch.id)
-                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-600 text-blue-600 dark:text-blue-300'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="font-bold text-xs">{branch.name}</span>
-                  {formData.assignedBranchIds.includes(branch.id) && (
-                    <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  )}
-                </button>
-              ))}
-              {branches.length === 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 italic col-span-2 text-center py-4">No branches found. Create a branch first.</p>
+            <div className="flex items-center justify-between ml-4">
+              <label className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Authorized Branches
+              </label>
+              {formData.role === 'admin' ? (
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full">
+                  Admin oversees all branches
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 rounded-full">
+                  Isolate to selected branches
+                </span>
               )}
             </div>
+
+            {formData.role === 'admin' ? (
+              <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs font-bold leading-relaxed">
+                Administrators automatically have complete authorization to oversee, manage, and switch across all branch locations and view overall system performance.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {branches.map((branch) => (
+                  <button
+                    key={branch.id}
+                    type="button"
+                    onClick={() => toggleBranch(branch.id)}
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                      formData.assignedBranchIds.includes(branch.id)
+                        ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-600 text-blue-600 dark:text-blue-300'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="font-bold text-xs">{branch.name}</span>
+                    {formData.assignedBranchIds.includes(branch.id) && (
+                      <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    )}
+                  </button>
+                ))}
+                {branches.length === 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 italic col-span-2 text-center py-4">No branches found. Create a branch first.</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="pt-4 flex gap-3">

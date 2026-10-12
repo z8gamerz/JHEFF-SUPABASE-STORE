@@ -15,7 +15,7 @@ import { Product } from '@/lib/db/idb';
 import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function ProductsPage() {
-  const { currentBranchId, loading: loadingBranches } = useBranches();
+  const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { isAdmin, isCashier } = useAuth();
   const { products, loading, addProduct, addProducts, updateProduct, deleteProduct } = useProducts(currentBranchId || undefined);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -74,18 +74,20 @@ export default function ProductsPage() {
     return list;
   }, [products, deferredSearch, showLowStockOnly, lowStockThreshold]);
 
-  if (!loadingBranches && !currentBranchId) {
+  const isAuthorized = !!currentBranchId && isBranchAuthorized(currentBranchId);
+
+  if (!loadingBranches && !isAuthorized) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-[3rem] p-12 text-center border border-gray-100 shadow-xl shadow-gray-200/50">
-            <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600">
+          <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-[3rem] p-12 text-center border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none">
+            <div className="w-24 h-24 bg-red-50 dark:bg-rose-950/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600 dark:text-red-400">
               <Package className="w-12 h-12" />
             </div>
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase mb-4">No Branch Access</h2>
-            <p className="text-gray-500 font-medium leading-relaxed mb-8">
-              You haven&apos;t been assigned to any branches yet. Please contact your administrator to get access.
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed mb-8">
+              You are not authorized to access this branch. Please contact your administrator to get access.
             </p>
             <Link 
               href="/"

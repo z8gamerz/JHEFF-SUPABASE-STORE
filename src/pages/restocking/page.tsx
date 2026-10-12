@@ -20,7 +20,7 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { useBranches } from '@/lib/hooks/use-branches';
 
 export default function RestockingPage() {
-  const { currentBranchId, loading: loadingBranches } = useBranches();
+  const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { 
     suppliers, restockHistory, loading, 
     addSupplier, updateSupplier, deleteSupplier, recordRestock 
@@ -49,18 +49,20 @@ export default function RestockingPage() {
     );
   }
 
-  if (!currentBranchId) {
+  const isAuthorized = !!currentBranchId && isBranchAuthorized(currentBranchId);
+
+  if (!loadingBranches && !isAuthorized) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-[3rem] p-12 text-center border border-gray-100 shadow-xl shadow-gray-200/50">
-            <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600">
+          <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-[3rem] p-12 text-center border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none">
+            <div className="w-24 h-24 bg-red-50 dark:bg-rose-950/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600 dark:text-red-400">
               <Truck className="w-12 h-12" />
             </div>
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase mb-4">No Branch Access</h2>
-            <p className="text-gray-500 font-medium leading-relaxed mb-8">
-              You haven&apos;t been assigned to any branches yet. Please contact your administrator to get access.
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed mb-8">
+              You are not authorized to access this branch. Please contact your administrator to get access.
             </p>
             <Link 
               href="/"
@@ -118,39 +120,39 @@ export default function RestockingPage() {
                 </Link>
                 <div>
                   <h1 className="text-4xl md:text-5xl font-black text-gray-950 dark:text-white tracking-tighter leading-none mb-2">Restocking</h1>
-                  <p className="text-lg text-gray-600 dark:text-gray-300 font-bold">Manage suppliers and inventory stock-in</p>
+                  <p className="text-base sm:text-lg text-gray-800 dark:text-gray-200 font-bold">Manage suppliers and record inventory stock-in</p>
                 </div>
               </div>
   
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setIsRestockFormOpen(true)}
-                  className="bg-indigo-600 text-white font-black px-8 py-5 rounded-2xl shadow-2xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-3 uppercase tracking-widest text-xs cursor-pointer"
+                  className="bg-indigo-600 text-white font-black px-6 sm:px-8 py-4 sm:py-5 rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2.5 uppercase tracking-wider text-xs cursor-pointer"
                 >
-                  <Plus className="w-5 h-5" />
-                  New Restock
+                  <Plus className="w-5 h-5 stroke-[2.5]" />
+                  <span>Record Stock</span>
                 </button>
               </div>
             </div>
   
             {/* Tabs */}
-            <div className="flex gap-4 mb-8 bg-white dark:bg-gray-900 p-2 rounded-[2rem] shadow-sm w-fit border border-gray-200 dark:border-gray-800">
+            <div className="flex gap-3 sm:gap-4 mb-8 bg-white dark:bg-gray-900 p-2 rounded-[2rem] shadow-xs w-fit border-2 border-gray-200 dark:border-gray-800">
               <button
                 onClick={() => setActiveTab('history')}
-                className={`px-8 py-4 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'history' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                className={`px-6 sm:px-8 py-3.5 sm:py-4 rounded-[1.5rem] font-black text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
+                  activeTab === 'history' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-gray-800 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400'
                 }`}
               >
-                <History className="w-5 h-5" />
+                <History className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
                 Purchase History
               </button>
               <button
                 onClick={() => setActiveTab('suppliers')}
-                className={`px-8 py-4 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'suppliers' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                className={`px-6 sm:px-8 py-3.5 sm:py-4 rounded-[1.5rem] font-black text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
+                  activeTab === 'suppliers' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-gray-800 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400'
                 }`}
               >
-                <Truck className="w-5 h-5" />
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
                 Suppliers
               </button>
             </div>
@@ -165,79 +167,80 @@ export default function RestockingPage() {
                   className="space-y-6"
                 >
                   {restockHistory.length === 0 ? (
-                    <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-20 text-center border border-gray-200 dark:border-gray-800 shadow-xl transition-colors">
-                      <div className="bg-gray-100 dark:bg-gray-800 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-gray-500 dark:text-gray-400">
-                        <History className="w-12 h-12" />
+                    <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-12 sm:p-20 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 shadow-lg transition-colors">
+                      <div className="bg-gray-100 dark:bg-gray-800 w-20 h-20 sm:w-24 sm:h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-indigo-600 dark:text-indigo-400 border border-gray-200 dark:border-gray-700">
+                        <History className="w-10 h-10 sm:w-12 sm:h-12" />
                       </div>
                       <h3 className="text-2xl font-black text-gray-950 dark:text-white mb-2">No Restock History</h3>
-                      <p className="text-gray-600 dark:text-gray-300 font-bold mb-8">Start recording your inventory purchases to see them here.</p>
+                      <p className="text-gray-700 dark:text-gray-300 font-bold mb-8 max-w-md mx-auto">Start recording your inventory purchases and supplier stock-ins to see them here.</p>
                       <button
                         onClick={() => setIsRestockFormOpen(true)}
-                        className="bg-gray-950 dark:bg-indigo-600 text-white font-black px-12 py-6 rounded-[2rem] shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-all uppercase tracking-widest text-sm cursor-pointer"
+                        className="bg-indigo-600 text-white font-black px-8 sm:px-12 py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] shadow-xl hover:bg-indigo-700 transition-all uppercase tracking-wider text-xs sm:text-sm cursor-pointer inline-flex items-center gap-2.5"
                       >
-                        Record First Restock
+                        <Plus className="w-5 h-5 stroke-[2.5]" />
+                        Record First Stock
                       </button>
                     </div>
                   ) : (
                     restockHistory.map((tx) => (
-                      <div key={tx.id} className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 border border-gray-200 dark:border-gray-800 shadow-xl hover:shadow-2xl transition-all group">
-                        <div className="flex flex-col lg:flex-row gap-8">
+                      <div key={tx.id} className="bg-white dark:bg-gray-900 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 border-2 border-gray-200 dark:border-gray-800 shadow-lg hover:shadow-xl transition-all group">
+                        <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-6">
-                              <div className="flex items-center gap-4">
-                                <div className="bg-indigo-50 dark:bg-indigo-950/60 p-3 rounded-2xl text-indigo-600 dark:text-indigo-400">
-                                  <Calendar className="w-5 h-5" />
+                              <div className="flex items-center gap-3.5 sm:gap-4">
+                                <div className="bg-indigo-50 dark:bg-indigo-950/80 p-2.5 sm:p-3 rounded-2xl text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                  <Calendar className="w-5 h-5 stroke-[2.5]" />
                                 </div>
                                 <div>
-                                  <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest leading-none mb-1">Date & Time</p>
-                                  <p className="font-black text-gray-950 dark:text-white">{new Date(tx.timestamp).toLocaleString()}</p>
+                                  <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Date & Time</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm sm:text-base">{new Date(tx.timestamp).toLocaleString()}</p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest leading-none mb-1">Total Cost</p>
-                                <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">₱{tx.totalCost.toLocaleString()}</p>
+                                <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Total Cost</p>
+                                <p className="text-2xl sm:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">₱{tx.totalCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
                               </div>
                             </div>
   
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-gray-50 dark:bg-gray-800/60 rounded-[2rem] border border-gray-100 dark:border-gray-800">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 p-5 sm:p-6 bg-gray-50 dark:bg-gray-800/80 rounded-2xl sm:rounded-[2rem] border-2 border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-3">
-                                <Truck className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                <Truck className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5]" />
                                 <div>
-                                  <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest leading-none mb-1">Supplier</p>
-                                  <p className="font-bold text-gray-950 dark:text-white">{suppliers.find(s => s.id === tx.supplierId)?.name || 'Unknown'}</p>
+                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Supplier</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm">{suppliers.find(s => s.id === tx.supplierId)?.name || 'Unknown'}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                <Hash className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                <Hash className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5]" />
                                 <div>
-                                  <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest leading-none mb-1">Ref #</p>
-                                  <p className="font-bold text-gray-950 dark:text-white">{tx.referenceNumber || 'N/A'}</p>
+                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Ref #</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm">{tx.referenceNumber || 'N/A'}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                <FileText className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5]" />
                                 <div>
-                                  <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest leading-none mb-1">Items</p>
-                                  <p className="font-bold text-gray-950 dark:text-white">{tx.items.length} Products</p>
+                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Items</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm">{tx.items.length} Products</p>
                                 </div>
                               </div>
                             </div>
                           </div>
   
-                          <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-800 pt-6 lg:pt-0 lg:pl-8">
-                            <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest mb-4">Item Breakdown</p>
+                          <div className="lg:w-80 border-t-2 lg:border-t-0 lg:border-l-2 border-gray-200 dark:border-gray-800 pt-6 lg:pt-0 lg:pl-8">
+                            <p className="text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-4">Item Breakdown</p>
                             <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                               {tx.items.map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-sm">
-                                  <span className="text-gray-700 dark:text-gray-300 font-medium">{item.name} <span className="text-gray-950 dark:text-white font-black">x{item.quantity}</span></span>
-                                  <span className="text-gray-950 dark:text-white font-bold">₱{(item.quantity * item.costPrice).toLocaleString()}</span>
+                                <div key={idx} className="flex items-center justify-between text-xs sm:text-sm">
+                                  <span className="text-gray-800 dark:text-gray-200 font-bold truncate max-w-[170px]">{item.name} <span className="text-gray-950 dark:text-white font-black">×{item.quantity}</span></span>
+                                  <span className="text-gray-950 dark:text-white font-black whitespace-nowrap">₱{(item.quantity * item.costPrice).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
                                 </div>
                               ))}
                             </div>
                             {tx.notes && (
-                              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
-                                <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest mb-2">Notes</p>
-                                <p className="text-sm text-gray-700 dark:text-gray-300 italic">&quot;{tx.notes}&quot;</p>
+                              <div className="mt-4 pt-4 border-t-2 border-gray-200 dark:border-gray-800">
+                                <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider mb-1">Notes</p>
+                                <p className="text-xs sm:text-sm text-gray-950 dark:text-gray-100 font-semibold italic">&quot;{tx.notes}&quot;</p>
                               </div>
                             )}
                           </div>

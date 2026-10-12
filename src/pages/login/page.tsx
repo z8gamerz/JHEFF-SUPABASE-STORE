@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { motion } from 'motion/react';
-import { Store, Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Store, Mail, Lock, Loader2, ArrowRight, ShieldAlert, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -13,13 +13,38 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const [countdown, setCountdown] = useState<number>(0);
+
+  const { login, rateLimitStatus, refreshRateLimitStatus } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
 
+  // Synchronize countdown with rate limit status
+  useEffect(() => {
+    if (rateLimitStatus.lockoutSeconds > 0) {
+      setCountdown(rateLimitStatus.lockoutSeconds);
+    }
+  }, [rateLimitStatus]);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          refreshRateLimitStatus();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [countdown, refreshRateLimitStatus]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (countdown > 0) return;
     setError('');
     setIsSubmitting(true);
     try {
@@ -27,10 +52,13 @@ function LoginContent() {
       router.push(callbackUrl);
     } catch (err: any) {
       setError(err.message || 'Failed to login');
+      refreshRateLimitStatus();
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const isLocked = countdown > 0 || !rateLimitStatus.allowed;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6 font-sans relative transition-colors">
@@ -54,9 +82,23 @@ function LoginContent() {
 
         <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-8 md:p-12 shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 dark:bg-rose-950/50 text-red-600 dark:text-rose-400 p-4 rounded-2xl text-xs font-black uppercase tracking-widest border border-red-100 dark:border-rose-900/50">
-                {error}
+            {/* Lockout Warning */}
+            {isLocked && (
+              <div className="bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 p-4 rounded-2xl text-xs font-bold border border-amber-200 dark:border-amber-800 flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-spin" />
+                <div>
+                  <p className="font-black uppercase tracking-wider">Account Security Lockout</p>
+                  <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+                    Too many failed attempts. Please wait <span className="font-black text-amber-900 dark:text-amber-100">{countdown}s</span> before retrying.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {error && !isLocked && (
+              <div className="bg-red-50 dark:bg-rose-950/50 text-red-600 dark:text-rose-400 p-4 rounded-2xl text-xs font-bold border border-red-100 dark:border-rose-900/50 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-red-500" />
+                <span>{error}</span>
               </div>
             )}
 
@@ -67,9 +109,10 @@ function LoginContent() {
                 <input
                   type="email"
                   required
+                  disabled={isLocked || isSubmitting}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-[2rem] pl-14 pr-8 py-5 font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-900/30 transition-all outline-none text-lg"
+                  className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-[2rem] pl-14 pr-8 py-5 font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-900/30 transition-all outline-none text-lg disabled:opacity-50"
                   placeholder="name@store.com"
                 />
               </div>
@@ -82,9 +125,10 @@ function LoginContent() {
                 <input
                   type="password"
                   required
+                  disabled={isLocked || isSubmitting}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-[2rem] pl-14 pr-8 py-5 font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-900/30 transition-all outline-none text-lg"
+                  className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-[2rem] pl-14 pr-8 py-5 font-bold text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-900/30 transition-all outline-none text-lg disabled:opacity-50"
                   placeholder="••••••••"
                 />
               </div>
@@ -92,11 +136,13 @@ function LoginContent() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLocked}
               className="w-full bg-gray-900 hover:bg-black dark:bg-orange-600 dark:hover:bg-orange-700 text-white font-black py-6 rounded-[2rem] flex items-center justify-center gap-4 shadow-2xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 uppercase tracking-widest text-sm mt-8 cursor-pointer"
             >
               {isSubmitting ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
+              ) : isLocked ? (
+                <span>Locked ({countdown}s)</span>
               ) : (
                 <>
                   Login to POS <ArrowRight className="w-6 h-6" />

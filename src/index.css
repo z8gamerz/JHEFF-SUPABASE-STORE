@@ -63,16 +63,28 @@
   }
 
   /* Window dialogs and modals font contrast protection */
+  dialog,
+  [role="dialog"],
+  [aria-modal="true"] {
+    color: #090d16;
+  }
+
   .dark dialog,
   .dark [role="dialog"],
   .dark [aria-modal="true"] {
     color: #f8fafc;
   }
 
+  dialog label,
+  [role="dialog"] label,
+  [aria-modal="true"] label {
+    color: #090d16;
+  }
+
   .dark dialog label,
   .dark [role="dialog"] label,
   .dark [aria-modal="true"] label {
-    color: #e2e8f0;
+    color: #f1f5f9;
   }
 
   @media print {

@@ -5,8 +5,16 @@ import { User } from '@/lib/db/idb';
 import { useRouter, usePathname } from 'next/navigation';
 import { userService } from '@/lib/services/user-service';
 import { auditService } from '@/lib/services/audit-service';
+import { authRateLimiter } from '@/lib/security/rate-limiter';
+import { sanitizeEmail } from '@/lib/security/input-sanitizer';
 
 export type UserRole = 'admin' | 'cashier';
+
+export interface AuthRateLimitStatus {
+  allowed: boolean;
+  remainingAttempts: number;
+  lockoutSeconds: number;
+}
 
 interface AuthContextType {
   user: Omit<User, 'passwordHash'> | null;
@@ -16,12 +24,23 @@ interface AuthContextType {
   isAdmin: boolean;
   isCashier: boolean;
   loading: boolean;
+  rateLimitStatus: AuthRateLimitStatus;
+  refreshRateLimitStatus: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple hash function for simulation
-async function hashPassword(password: string): Promise<string> {
+// Salted SHA-256 hash function with fallback for legacy hashes
+async function hashPassword(password: string, salt: string = 'sari_pos_salt_v1'): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`${salt}:${password}`);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Legacy unsalted hash helper for backwards compatibility
+async function hashPasswordLegacy(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -32,8 +51,13 @@ async function hashPassword(password: string): Promise<string> {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Omit<User, 'passwordHash'> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rateLimitStatus, setRateLimitStatus] = useState<AuthRateLimitStatus>(() => authRateLimiter.isAllowed());
   const router = useRouter();
   const pathname = usePathname();
+
+  const refreshRateLimitStatus = () => {
+    setRateLimitStatus(authRateLimiter.isAllowed());
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -57,33 +81,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const users = await userService.getAll();
-    const foundUser = users.find(u => u.email === email);
+  const login = async (emailInput: string, password: string) => {
+    const email = sanitizeEmail(emailInput);
     
-    if (!foundUser) {
-      throw new Error('Invalid email or password');
+    // Check Rate Limiting
+    const limitCheck = authRateLimiter.isAllowed();
+    if (!limitCheck.allowed) {
+      setRateLimitStatus(limitCheck);
+      throw new Error(`Too many failed login attempts. Account temporarily locked for security. Try again in ${limitCheck.lockoutSeconds} seconds.`);
     }
 
-    const hashedPassword = await hashPassword(password);
-    if (foundUser.passwordHash !== hashedPassword) {
-      throw new Error('Invalid email or password');
+    const users = await userService.getAll();
+    const foundUser = users.find(u => u.email.toLowerCase() === email);
+    
+    if (!foundUser) {
+      const failed = authRateLimiter.recordFailure();
+      setRateLimitStatus(failed);
+      await auditService.log('AUTH_FAILED', `Failed login attempt for unknown email: ${email}`, email);
+      if (!failed.allowed) {
+        throw new Error(`Too many failed attempts. Locked out for ${failed.lockoutSeconds} seconds.`);
+      }
+      throw new Error(`Invalid email or password. (${failed.remainingAttempts} attempts remaining)`);
     }
+
+    // Check with salted hash first, then fallback to legacy unsalted hash
+    const saltedHash = await hashPassword(password, foundUser.email);
+    const legacyHash = await hashPasswordLegacy(password);
+
+    const isMatch = foundUser.passwordHash === saltedHash || foundUser.passwordHash === legacyHash;
+
+    if (!isMatch) {
+      const failed = authRateLimiter.recordFailure();
+      setRateLimitStatus(failed);
+      await auditService.log('AUTH_FAILED', `Failed password attempt for user: ${email}`, email);
+      if (!failed.allowed) {
+        throw new Error(`Too many failed attempts. Locked out for ${failed.lockoutSeconds} seconds.`);
+      }
+      throw new Error(`Invalid email or password. (${failed.remainingAttempts} attempts remaining)`);
+    }
+
+    // If logged in via legacy hash, upgrade to salted hash automatically
+    if (foundUser.passwordHash === legacyHash) {
+      await userService.update({
+        ...foundUser,
+        passwordHash: saltedHash,
+      });
+    }
+
+    // Reset rate limiter on successful authentication
+    authRateLimiter.reset();
+    setRateLimitStatus(authRateLimiter.isAllowed());
 
     const { passwordHash, ...userWithoutPassword } = foundUser;
     setUser(userWithoutPassword);
     localStorage.setItem('pos-user-id', foundUser.id);
-    await auditService.log('USER_LOGIN', `User ${email} logged in`, email);
+    await auditService.log('USER_LOGIN', `User ${email} logged in successfully`, email);
     router.push('/');
   };
 
-  const signup = async (name: string, email: string, password: string, role: UserRole) => {
+  const signup = async (name: string, emailInput: string, password: string, role: UserRole) => {
+    const email = sanitizeEmail(emailInput);
     const users = await userService.getAll();
     
     // Check if any user exists
     if (users.length > 0) {
-      // If users exist, only an admin can create new users via management (not this signup page)
-      // But for this local simulation, we'll allow it if the user is an admin
       if (user?.role !== 'admin') {
         throw new Error('Only administrators can create new accounts.');
       }
@@ -94,11 +155,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (users.some(u => u.email === email)) {
+    if (users.some(u => u.email.toLowerCase() === email)) {
       throw new Error('Email already exists');
     }
 
-    const hashedPassword = await hashPassword(password);
+    const hashedPassword = await hashPassword(password, email);
     const businessId = 'main_config'; // Default business ID for local simulation
     const newUser: User = {
       id: crypto.randomUUID(),
@@ -133,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     login,
     signup,
@@ -141,6 +202,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin: user?.role === 'admin',
     isCashier: user?.role === 'cashier',
     loading,
+    rateLimitStatus,
+    refreshRateLimitStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -25,7 +25,8 @@ import {
   ChevronDown, 
   ChevronUp,
   Tag,
-  Receipt
+  Receipt,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -33,17 +34,28 @@ interface CreditHistoryProps {
   customer: Customer;
   getHistory: (id: string) => Promise<CreditEntry[]>;
   onClose: () => void;
+  onDeleteEntry?: (id: string) => Promise<void>;
 }
 
 type TabType = 'cross_match' | 'payments' | 'unpaid' | 'all';
 
-export function CreditHistory({ customer, getHistory, onClose }: CreditHistoryProps) {
+export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: CreditHistoryProps) {
   const [history, setHistory] = useState<CreditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('cross_match');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCreditIds, setExpandedCreditIds] = useState<Record<string, boolean>>({});
   const [showPrintModal, setShowPrintModal] = useState(false);
+
+  const handleDeleteEntry = async (entryId: string) => {
+    if (confirm('Are you sure you want to delete this credit/balance entry? This action cannot be undone.')) {
+      if (onDeleteEntry) {
+        await onDeleteEntry(entryId);
+      }
+      const data = await getHistory(customer.id);
+      setHistory(data);
+    }
+  };
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -409,9 +421,24 @@ export function CreditHistory({ customer, getHistory, onClose }: CreditHistoryPr
                                     ₱0.00 Balance
                                   </span>
                                 ) : (
-                                  <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">
-                                    Balance: ₱{credit.remainingBalance.toFixed(2)}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 justify-end">
+                                    <span className="text-xs font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">
+                                      Balance: ₱{credit.remainingBalance.toFixed(2)}
+                                    </span>
+                                    {onDeleteEntry && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteEntry(credit.id);
+                                        }}
+                                        title="Delete this credit balance entry"
+                                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -654,11 +681,23 @@ export function CreditHistory({ customer, getHistory, onClose }: CreditHistoryPr
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Remaining Balance</span>
-                          <span className="text-lg font-black text-red-600">
-                            ₱{credit.remainingBalance.toFixed(2)}
-                          </span>
+                        <div className="text-right shrink-0 flex items-center gap-3">
+                          <div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Remaining Balance</span>
+                            <span className="text-lg font-black text-red-600">
+                              ₱{credit.remainingBalance.toFixed(2)}
+                            </span>
+                          </div>
+                          {onDeleteEntry && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEntry(credit.id)}
+                              title="Delete this balance entry"
+                              className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -718,8 +757,20 @@ export function CreditHistory({ customer, getHistory, onClose }: CreditHistoryPr
                           </div>
                         </div>
 
-                        <div className={`text-base font-black ${isCredit ? 'text-red-600' : 'text-green-600'}`}>
-                          {isCredit ? '+' : '-'} ₱{Math.abs(entry.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        <div className="flex items-center gap-2">
+                          <div className={`text-base font-black ${isCredit ? 'text-red-600' : 'text-green-600'}`}>
+                            {isCredit ? '+' : '-'} ₱{Math.abs(entry.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                          </div>
+                          {onDeleteEntry && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              title="Delete entry"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

@@ -29,8 +29,10 @@ import {
   TrendingDown,
   TrendingUp,
   FileSpreadsheet,
-  PieChart
+  PieChart,
+  Trash2
 } from 'lucide-react';
+import { ConfirmModal } from '@/components/ui/modal';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -79,6 +81,13 @@ export default function CreditReportPage() {
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const [recordCustomer, setRecordCustomer] = useState<Customer | null>(null);
   const [recordType, setRecordType] = useState<'credit' | 'payment' | null>(null);
+  const [deleteBalanceTarget, setDeleteBalanceTarget] = useState<CustomerSummaryWithMatch | null>(null);
+  const [deleteDebtTarget, setDeleteDebtTarget] = useState<{
+    customerName: string;
+    entryId: string;
+    description: string;
+    remainingBalance: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!authLoading && isCashier) {
@@ -471,6 +480,30 @@ export default function CreditReportPage() {
 
   const getCreditHistory = async (customerId: string) => {
     return await customerService.getCreditHistory(customerId);
+  };
+
+  const handleConfirmDeleteBalance = async () => {
+    if (!deleteBalanceTarget) return;
+    try {
+      await customerService.clearCustomerBalance(deleteBalanceTarget.customer.id, 'Balance Cleared / Deleted by Admin');
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to clear customer balance:', err);
+    } finally {
+      setDeleteBalanceTarget(null);
+    }
+  };
+
+  const handleConfirmDeleteDebt = async () => {
+    if (!deleteDebtTarget) return;
+    try {
+      await customerService.deleteCreditEntry(deleteDebtTarget.entryId);
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to delete debt entry:', err);
+    } finally {
+      setDeleteDebtTarget(null);
+    }
   };
 
   if (loadingBranches || authLoading) {
@@ -993,9 +1026,21 @@ export default function CreditReportPage() {
 
                             {/* Current Overall Balance */}
                             <td className="py-4 px-6 text-right font-black text-sm">
-                              <span className={item.currentBalance > 0.001 ? 'text-red-600' : 'text-emerald-700'}>
-                                ₱{item.currentBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                              </span>
+                              <div className="flex items-center justify-end gap-2">
+                                <span className={item.currentBalance > 0.001 ? 'text-red-600' : 'text-emerald-700'}>
+                                  ₱{item.currentBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                </span>
+                                {item.currentBalance > 0.001 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteBalanceTarget(item)}
+                                    title={`Delete / Clear balance of ₱${item.currentBalance.toFixed(2)} for ${item.customer.name}`}
+                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/60 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
 
                             {/* Settlement Status: Fully Paid vs Outstanding */}
@@ -1032,15 +1077,25 @@ export default function CreditReportPage() {
                                   View Ledger
                                 </button>
                                 {item.currentBalance > 0.001 && (
-                                  <button
-                                    onClick={() => {
-                                      setRecordCustomer(item.customer);
-                                      setRecordType('payment');
-                                    }}
-                                    className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                                  >
-                                    Pay
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setRecordCustomer(item.customer);
+                                        setRecordType('payment');
+                                      }}
+                                      className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                                    >
+                                      Pay
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteBalanceTarget(item)}
+                                      title="Delete / Clear customer balance"
+                                      className="px-2.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -1078,12 +1133,13 @@ export default function CreditReportPage() {
                       <th className="py-3.5 px-6 text-right">Paid</th>
                       <th className="py-3.5 px-6 text-right">Remaining Balance</th>
                       <th className="py-3.5 px-6 text-center">Status</th>
+                      <th className="py-3.5 px-6 text-center print:hidden">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {allUnpaidItems.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-16 text-center text-gray-400">
+                        <td colSpan={9} className="py-16 text-center text-gray-400">
                           <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-2" />
                           <p className="font-bold text-gray-700">No active debts found!</p>
                           <p className="text-xs text-gray-400">All customer credits have been settled.</p>
@@ -1119,7 +1175,22 @@ export default function CreditReportPage() {
                             ₱{credit.amountPaid.toFixed(2)}
                           </td>
                           <td className="py-3.5 px-6 text-right font-black text-red-600 text-sm">
-                            ₱{credit.remainingBalance.toFixed(2)}
+                            <div className="flex items-center justify-end gap-2">
+                              <span>₱{credit.remainingBalance.toFixed(2)}</span>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteDebtTarget({
+                                  customerName: customer.name,
+                                  entryId: credit.id,
+                                  description: credit.description,
+                                  remainingBalance: credit.remainingBalance
+                                })}
+                                title="Delete this debt balance"
+                                className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                           <td className="py-3.5 px-6 text-center">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
@@ -1129,6 +1200,21 @@ export default function CreditReportPage() {
                             }`}>
                               {credit.status === 'partially_paid' ? 'Partial' : 'Unpaid'}
                             </span>
+                          </td>
+                          <td className="py-3.5 px-6 text-center print:hidden">
+                            <button
+                              type="button"
+                              onClick={() => setDeleteDebtTarget({
+                                customerName: customer.name,
+                                entryId: credit.id,
+                                description: credit.description,
+                                remainingBalance: credit.remainingBalance
+                              })}
+                              className="px-2.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition-colors flex items-center gap-1 mx-auto cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1221,12 +1307,13 @@ export default function CreditReportPage() {
                       <th className="py-3.5 px-6 text-center">Type</th>
                       <th className="py-3.5 px-6">Description</th>
                       <th className="py-3.5 px-6 text-right">Debit (+) / Credit (-)</th>
+                      <th className="py-3.5 px-6 text-center print:hidden">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {journalEntries.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-16 text-center text-gray-400">
+                        <td colSpan={6} className="py-16 text-center text-gray-400">
                           No transactions found in this period.
                         </td>
                       </tr>
@@ -1252,9 +1339,39 @@ export default function CreditReportPage() {
                               {entry.description}
                             </td>
                             <td className="py-3.5 px-6 text-right font-black text-sm">
-                              <span className={isCredit ? 'text-red-600' : 'text-green-600'}>
-                                {isCredit ? '+' : '-'}₱{Math.abs(entry.amount).toFixed(2)}
-                              </span>
+                              <div className="flex items-center justify-end gap-2">
+                                <span className={isCredit ? 'text-red-600' : 'text-green-600'}>
+                                  {isCredit ? '+' : '-'}₱{Math.abs(entry.amount).toFixed(2)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteDebtTarget({
+                                    customerName: customer?.name || 'Customer',
+                                    entryId: entry.id,
+                                    description: entry.description,
+                                    remainingBalance: Math.abs(entry.amount)
+                                  })}
+                                  title="Delete this entry"
+                                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-6 text-center print:hidden">
+                              <button
+                                type="button"
+                                onClick={() => setDeleteDebtTarget({
+                                  customerName: customer?.name || 'Customer',
+                                  entryId: entry.id,
+                                  description: entry.description,
+                                  remainingBalance: Math.abs(entry.amount)
+                                })}
+                                className="px-2.5 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold text-xs transition-colors flex items-center gap-1 mx-auto cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete</span>
+                              </button>
                             </td>
                           </tr>
                         );
@@ -1273,6 +1390,10 @@ export default function CreditReportPage() {
             customer={historyCustomer}
             getHistory={getCreditHistory}
             onClose={() => setHistoryCustomer(null)}
+            onDeleteEntry={async (entryId) => {
+              await customerService.deleteCreditEntry(entryId);
+              await fetchData();
+            }}
           />
         )}
 
@@ -1288,6 +1409,28 @@ export default function CreditReportPage() {
             }}
           />
         )}
+
+        {/* Confirm Delete Customer Balance Modal */}
+        <ConfirmModal
+          isOpen={!!deleteBalanceTarget}
+          onClose={() => setDeleteBalanceTarget(null)}
+          onConfirm={handleConfirmDeleteBalance}
+          title="Delete Customer Balance"
+          message={deleteBalanceTarget ? `Are you sure you want to delete and clear the outstanding balance of ₱${deleteBalanceTarget.currentBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })} for ${deleteBalanceTarget.customer.name}? This will clear their debt and reset their balance to ₱0.00.` : ''}
+          confirmText="Delete Balance"
+          variant="danger"
+        />
+
+        {/* Confirm Delete Individual Debt Entry Modal */}
+        <ConfirmModal
+          isOpen={!!deleteDebtTarget}
+          onClose={() => setDeleteDebtTarget(null)}
+          onConfirm={handleConfirmDeleteDebt}
+          title="Delete Debt Entry"
+          message={deleteDebtTarget ? `Are you sure you want to delete this debt of ₱${deleteDebtTarget.remainingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })} for ${deleteDebtTarget.customerName} (${deleteDebtTarget.description})? This entry will be permanently removed and the customer's balance will be recalculated.` : ''}
+          confirmText="Delete Debt"
+          variant="danger"
+        />
       </div>
     </AuthGuard>
   );

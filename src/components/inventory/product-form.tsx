@@ -73,16 +73,16 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800 transition-colors"
+        className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 transition-colors my-auto"
       >
-        <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/70 dark:bg-gray-800/60">
+        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-850">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500 p-2.5 rounded-2xl text-white shadow-md shadow-orange-500/20">
-              <Package className="w-5 h-5" />
+              <Package className="w-5 h-5 stroke-[2.5]" />
             </div>
             <h3 className="text-xl font-black text-gray-950 dark:text-white uppercase tracking-tight">
               {product ? 'Edit Product' : 'Add New Product'}
@@ -91,17 +91,18 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
           <button 
             type="button"
             onClick={onClose} 
-            className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="p-2 sm:p-2.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:text-gray-950 dark:hover:text-white transition-colors cursor-pointer"
+            title="Close dialog"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-1 gap-6">
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
+          <div className="grid grid-cols-1 gap-5">
             <div>
-              <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                <Tag className="w-3.5 h-3.5 text-orange-500" /> Product Name
+              <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                <Tag className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 stroke-[2.5]" /> Product Name *
               </label>
               <input
                 type="text"
@@ -109,14 +110,14 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g. Coca-Cola 1.5L"
-                className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  <Coins className="w-3.5 h-3.5 text-emerald-500" /> Cost (₱)
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  <Coins className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" /> Cost (₱)
                 </label>
                 <input
                   type="number"
@@ -125,12 +126,12 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                   value={formData.cost}
                   onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
                   placeholder="0.00"
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  <Coins className="w-3.5 h-3.5 text-orange-500" /> Price (₱)
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  <Coins className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 stroke-[2.5]" /> Price (₱) *
                 </label>
                 <input
                   type="number"
@@ -139,21 +140,21 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   placeholder="0.00"
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  Category
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  Category *
                 </label>
                 <select
                   required
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all cursor-pointer"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all cursor-pointer shadow-xs"
                 >
                   <option value="">Select...</option>
                   <option value="Drinks">Drinks</option>
@@ -164,14 +165,14 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                 </select>
               </div>
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  <MapPin className="w-3.5 h-3.5 text-rose-500" /> Branch
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 stroke-[2.5]" /> Branch *
                 </label>
                 <select
                   required
                   value={formData.branchId}
                   onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all cursor-pointer"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all cursor-pointer shadow-xs"
                 >
                   <option value="">Select Branch...</option>
                   {branches.map(b => (
@@ -183,8 +184,8 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  <Hash className="w-3.5 h-3.5 text-blue-500" /> Stock Qty
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  <Hash className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[2.5]" /> Stock Qty *
                 </label>
                 <input
                   type="number"
@@ -192,23 +193,23 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                   placeholder="0"
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Min Stock Alert
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" /> Min Stock Alert
                 </label>
                 <input
                   type="number"
                   value={formData.minStock}
                   onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
                   placeholder="e.g. 10"
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
                   Barcode (Optional)
                 </label>
                 <input
@@ -216,31 +217,31 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                   value={formData.barcode}
                   onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                   placeholder="Scan or type..."
-                  className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>
             </div>
           </div>
 
-          <div className="pt-4 flex gap-3">
+          <div className="pt-3 flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
+              className="flex-1 px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-[2] bg-orange-600 hover:bg-orange-700 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all text-xs uppercase tracking-widest cursor-pointer"
+              className="flex-[2] bg-orange-600 hover:bg-orange-700 text-white font-black py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all text-xs uppercase tracking-wider cursor-pointer"
             >
               {isSaving ? (
                 <span className="animate-spin border-2 border-white/30 border-t-white rounded-full w-5 h-5" />
               ) : (
                 <>
-                  <Save className="w-5 h-5" />
-                  {product ? 'Update Product' : 'Save Product'}
+                  <Save className="w-5 h-5 stroke-[2.5]" />
+                  <span>{product ? 'Update Product' : 'Save Product'}</span>
                 </>
               )}
             </button>

@@ -25,8 +25,8 @@ export function StoreSetup() {
       const existingBranches = (await branchService.getAll()).filter(b => !b.isDeleted);
       if (existingBranches.length === 0) {
         await addBranch({
-          name: 'JHEFF CONSTRUCTION BRANCH',
-          address: 'Default Address',
+          name: name ? `${name} - Main Branch` : 'Main Branch',
+          address: 'Main Store Address',
           contact: 'N/A'
         });
       }

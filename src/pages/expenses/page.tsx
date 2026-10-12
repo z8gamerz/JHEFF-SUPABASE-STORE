@@ -15,7 +15,7 @@ import { Expense } from '@/lib/db/idb';
 import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function ExpensesPage() {
-  const { currentBranchId, loading: loadingBranches } = useBranches();
+  const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { user, isAdmin, loading: authLoading } = useAuth();
   const { expenses, loading, addExpense, deleteExpense } = useExpenses(currentBranchId || undefined);
 
@@ -64,7 +64,9 @@ export default function ExpensesPage() {
     );
   }
 
-  if (!currentBranchId) {
+  const isAuthorized = !!currentBranchId && isBranchAuthorized(currentBranchId);
+
+  if (!loadingBranches && !isAuthorized) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
@@ -75,7 +77,7 @@ export default function ExpensesPage() {
             </div>
             <h2 className="text-3xl font-black text-gray-950 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
             <p className="text-gray-600 dark:text-gray-300 font-bold leading-relaxed mb-8">
-              You haven&apos;t been assigned to any branches yet. Please contact your administrator to get access.
+              You are not authorized to access this branch. Please contact your administrator to get access.
             </p>
             <Link 
               href="/"

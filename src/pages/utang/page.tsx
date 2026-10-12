@@ -17,8 +17,8 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { useBranches } from '@/lib/hooks/use-branches';
 
 export default function UtangPage() {
-  const { currentBranchId, loading: loadingBranches } = useBranches();
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, recordCredit, getCreditHistory } = useCustomers(currentBranchId || undefined);
+  const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
+  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, recordCredit, getCreditHistory, deleteCreditEntry, clearCustomerBalance } = useCustomers(currentBranchId || undefined);
   const { isCashier, loading: authLoading } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,6 +29,7 @@ export default function UtangPage() {
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const [recordType, setRecordType] = useState<'credit' | 'payment' | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [clearBalanceTarget, setClearBalanceTarget] = useState<Customer | null>(null);
 
   const deferredSearch = useDeferredValue(searchQuery);
 
@@ -78,18 +79,20 @@ export default function UtangPage() {
     );
   }
 
-  if (!currentBranchId) {
+  const isAuthorized = !!currentBranchId && isBranchAuthorized(currentBranchId);
+
+  if (!loadingBranches && !isAuthorized) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white rounded-[3rem] p-12 text-center border border-gray-100 shadow-xl shadow-gray-200/50">
-            <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600">
+          <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-[3rem] p-12 text-center border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none">
+            <div className="w-24 h-24 bg-red-50 dark:bg-rose-950/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600 dark:text-red-400">
               <User className="w-12 h-12" />
             </div>
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase mb-4">No Branch Access</h2>
-            <p className="text-gray-500 font-medium leading-relaxed mb-8">
-              You haven&apos;t been assigned to any branches yet. Please contact your administrator to get access.
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed mb-8">
+              You are not authorized to access this branch. Please contact your administrator to get access.
             </p>
             <Link 
               href="/"
@@ -362,9 +365,21 @@ export default function UtangPage() {
                       )}
                     </div>
                     <div className="flex items-baseline justify-between">
-                      <p className={`text-2xl font-black ${customer.totalUtang > 0.001 ? 'text-red-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                        ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={`text-2xl font-black ${customer.totalUtang > 0.001 ? 'text-red-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        </p>
+                        {customer.totalUtang > 0.001 && (
+                          <button
+                            type="button"
+                            onClick={() => setClearBalanceTarget(customer)}
+                            title="Delete / Clear balance"
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-950/60 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                       <span className="text-xs font-bold text-gray-400 dark:text-gray-500">
                         {customer.totalUtang <= 0.001 ? 'Zero Balance' : 'Unpaid Balance'}
                       </span>
@@ -428,6 +443,7 @@ export default function UtangPage() {
             customer={historyCustomer}
             getHistory={getCreditHistory}
             onClose={() => setHistoryCustomer(null)}
+            onDeleteEntry={deleteCreditEntry}
           />
         )}
   
@@ -439,6 +455,21 @@ export default function UtangPage() {
           message="Are you sure you want to delete this customer? All credit history will be lost. This action cannot be undone."
           variant="danger"
           confirmText="Delete"
+        />
+
+        <ConfirmModal
+          isOpen={!!clearBalanceTarget}
+          onClose={() => setClearBalanceTarget(null)}
+          onConfirm={async () => {
+            if (clearBalanceTarget) {
+              await clearCustomerBalance(clearBalanceTarget.id);
+              setClearBalanceTarget(null);
+            }
+          }}
+          title="Delete / Clear Balance"
+          message={clearBalanceTarget ? `Are you sure you want to delete and clear the balance of ₱${clearBalanceTarget.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })} for ${clearBalanceTarget.name}? This will reset their balance to ₱0.00.` : ''}
+          variant="danger"
+          confirmText="Delete Balance"
         />
       </div>
     </AuthGuard>

@@ -104,12 +104,19 @@ export function SummaryCards({
         title: 'OR Range',
         value: `${orRange.start} - ${orRange.end.split('-')[1]}`,
         icon: ShoppingBag,
-        color: 'bg-slate-600',
-        bg: 'bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800',
+        color: 'bg-slate-700',
+        bg: 'bg-white dark:bg-gray-900 border-2 border-slate-300 dark:border-slate-700 shadow-sm',
         textColor: 'text-slate-950 dark:text-slate-200',
       }
     ] : []),
   ];
+
+  const getAutoFitSize = (val: string) => {
+    const len = val.length;
+    if (len > 16) return 'text-base sm:text-lg';
+    if (len > 12) return 'text-lg sm:text-xl';
+    return 'text-xl sm:text-2xl';
+  };
 
   const ewalletCards = [
     {
@@ -132,41 +139,55 @@ export function SummaryCards({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 sm:gap-6">
         {cards.map((card, index) => (
           <motion.div
             key={card.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`${card.bg} p-6 rounded-[2rem] hover:shadow-xl transition-all h-full flex flex-col justify-between`}
+            transition={{ delay: index * 0.05 }}
+            className={`${card.bg} p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] hover:shadow-xl transition-all h-full flex flex-col justify-between min-w-0 overflow-hidden`}
           >
-            <div className={`${card.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg`}>
-              <card.icon className="w-6 h-6" />
+            <div className={`${card.color} w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg shrink-0`}>
+              <card.icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
             </div>
-            <div>
-              <p className="text-gray-700 dark:text-gray-300 font-black text-xs uppercase tracking-widest mb-1">{card.title}</p>
-              <p className={`${card.textColor} font-black text-2xl tracking-tight`}>{card.value}</p>
+            <div className="min-w-0 w-full">
+              <p className="text-gray-950 dark:text-gray-100 font-black text-xs uppercase tracking-wider mb-1">
+                {card.title}
+              </p>
+              <p 
+                title={card.value}
+                className={`${card.textColor} font-black ${getAutoFitSize(card.value)} tracking-tight truncate min-w-0 max-w-full`}
+              >
+                {card.value}
+              </p>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {ewalletCards.map((card, index) => (
           <motion.div
             key={card.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (index + 4) * 0.1 }}
-            className={`${card.bg} p-6 rounded-[2rem] hover:shadow-xl transition-all h-full flex flex-col justify-between`}
+            transition={{ delay: (index + 4) * 0.05 }}
+            className={`${card.bg} p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] hover:shadow-xl transition-all h-full flex flex-col justify-between min-w-0 overflow-hidden`}
           >
-            <div className={`${card.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg`}>
-              <card.icon className="w-6 h-6" />
+            <div className={`${card.color} w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg shrink-0`}>
+              <card.icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
             </div>
-            <div>
-              <p className="text-gray-700 dark:text-gray-300 font-black text-xs uppercase tracking-widest mb-1">{card.title}</p>
-              <p className={`${card.textColor} font-black text-2xl tracking-tight`}>{card.value}</p>
+            <div className="min-w-0 w-full">
+              <p className="text-gray-950 dark:text-gray-100 font-black text-xs uppercase tracking-wider mb-1">
+                {card.title}
+              </p>
+              <p 
+                title={card.value}
+                className={`${card.textColor} font-black ${getAutoFitSize(card.value)} tracking-tight truncate min-w-0 max-w-full`}
+              >
+                {card.value}
+              </p>
             </div>
           </motion.div>
         ))}

@@ -23,7 +23,7 @@ export default function UsersManagementPage() {
     const fetchBranches = async () => {
       setLoadingBranches(true);
       try {
-        const allBranches = await branchService.getAll();
+        const allBranches = (await branchService.getAll()).filter(b => !b.isDeleted);
         setBranches(allBranches);
       } catch (error) {
         console.error('Failed to fetch branches:', error);

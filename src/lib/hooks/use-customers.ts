@@ -98,6 +98,16 @@ export function useCustomers(branchId?: string) {
     return history.sort((a, b) => b.timestamp - a.timestamp);
   };
 
+  const deleteCreditEntry = async (entryId: string) => {
+    await customerService.deleteCreditEntry(entryId);
+    await fetchCustomers();
+  };
+
+  const clearCustomerBalance = async (customerId: string, note?: string) => {
+    await customerService.clearCustomerBalance(customerId, note);
+    await fetchCustomers();
+  };
+
   const getAllCreditLogs = async () => {
     const history = await customerService.getAllCreditEntries(branchId);
     return history.sort((a, b) => b.timestamp - a.timestamp);
@@ -111,6 +121,8 @@ export function useCustomers(branchId?: string) {
     deleteCustomer,
     recordCredit,
     getCreditHistory,
+    deleteCreditEntry,
+    clearCustomerBalance,
     getAllCreditLogs,
     refresh: fetchCustomers,
   };

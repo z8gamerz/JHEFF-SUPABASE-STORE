@@ -21,17 +21,45 @@ import { motion } from 'motion/react';
 import { useBranches } from '@/lib/hooks/use-branches';
 
 export default function DailySummaryPage() {
-  const { currentBranchId } = useBranches();
+  const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { loading, getDailySummary } = useReports(currentBranchId || undefined);
-  const { isCashier } = useAuth();
+  const { isAdmin, isCashier } = useAuth();
   const { store } = useStore();
 
   const summary = getDailySummary();
 
-  if (loading) {
+  if (loading || loadingBranches) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <Loader2 className="w-12 h-12 animate-spin text-orange-600" />
+      </div>
+    );
+  }
+
+  const isAuthorized = isAdmin || (!!currentBranchId && isBranchAuthorized(currentBranchId));
+
+  if (!isAuthorized || !currentBranchId) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-[3rem] p-12 text-center border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none">
+            <div className="w-24 h-24 bg-red-50 dark:bg-rose-950/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600 dark:text-red-400">
+              <LayoutDashboard className="w-12 h-12" />
+            </div>
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed mb-8">
+              You are not authorized to view the daily summary for this branch. Please contact your administrator.
+            </p>
+            <Link 
+              href="/"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -42,7 +70,7 @@ export default function DailySummaryPage() {
       value: `₱${summary.totalSales.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
       icon: TrendingUp,
       color: 'bg-orange-600',
-      bg: 'bg-orange-50 dark:bg-orange-950/30 border border-orange-200/60 dark:border-orange-900/40',
+      bg: 'bg-white dark:bg-gray-900 border-2 border-orange-300 dark:border-orange-800/80 shadow-sm',
       textColor: 'text-orange-950 dark:text-orange-200',
     },
     {
@@ -50,7 +78,7 @@ export default function DailySummaryPage() {
       value: `₱${summary.totalProfit.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
       icon: LayoutDashboard,
       color: 'bg-emerald-600',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40',
+      bg: 'bg-white dark:bg-gray-900 border-2 border-emerald-300 dark:border-emerald-800/80 shadow-sm',
       textColor: 'text-emerald-950 dark:text-emerald-200',
     },
     {
@@ -58,8 +86,8 @@ export default function DailySummaryPage() {
       value: `₱${(summary.totalExpenses || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
       icon: TrendingDown,
       color: 'bg-red-600',
-      bg: 'bg-red-50 dark:bg-red-950/30 border border-red-200/60 dark:border-red-900/40',
-      textColor: 'text-red-950 dark:text-red-200',
+      bg: 'bg-white dark:bg-gray-900 border-2 border-rose-300 dark:border-rose-800/80 shadow-sm',
+      textColor: 'text-rose-950 dark:text-rose-200',
     },
     ...(store?.taxType === 'VAT' ? [
       {
@@ -67,7 +95,7 @@ export default function DailySummaryPage() {
         value: `₱${summary.totalVatCollected.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
         icon: Percent,
         color: 'bg-rose-600',
-        bg: 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40',
+        bg: 'bg-white dark:bg-gray-900 border-2 border-rose-300 dark:border-rose-800/80 shadow-sm',
         textColor: 'text-rose-950 dark:text-rose-200',
       },
       {
@@ -75,7 +103,7 @@ export default function DailySummaryPage() {
         value: `₱${summary.totalVatableSales.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
         icon: Percent,
         color: 'bg-amber-600',
-        bg: 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40',
+        bg: 'bg-white dark:bg-gray-900 border-2 border-amber-300 dark:border-amber-800/80 shadow-sm',
         textColor: 'text-amber-950 dark:text-amber-200',
       }
     ] : []),
@@ -84,7 +112,7 @@ export default function DailySummaryPage() {
       value: summary.totalTickets.toString(),
       icon: ShoppingBag,
       color: 'bg-blue-600',
-      bg: 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40',
+      bg: 'bg-white dark:bg-gray-900 border-2 border-blue-300 dark:border-blue-800/80 shadow-sm',
       textColor: 'text-blue-950 dark:text-blue-200',
     },
     {
@@ -92,7 +120,7 @@ export default function DailySummaryPage() {
       value: summary.ewalletCount.toString(),
       icon: Wallet,
       color: 'bg-indigo-600',
-      bg: 'bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/40',
+      bg: 'bg-white dark:bg-gray-900 border-2 border-indigo-300 dark:border-indigo-800/80 shadow-sm',
       textColor: 'text-indigo-950 dark:text-indigo-200',
     },
     {
@@ -100,7 +128,7 @@ export default function DailySummaryPage() {
       value: `₱${summary.totalFees.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`,
       icon: Percent,
       color: 'bg-purple-600',
-      bg: 'bg-purple-50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-900/40',
+      bg: 'bg-white dark:bg-gray-900 border-2 border-purple-300 dark:border-purple-800/80 shadow-sm',
       textColor: 'text-purple-950 dark:text-purple-200',
     },
     ...(summary.orRange ? [
@@ -108,62 +136,80 @@ export default function DailySummaryPage() {
         title: 'OR Range',
         value: `${summary.orRange.start} - ${summary.orRange.end.split('-')[1]}`,
         icon: ShoppingBag,
-        color: 'bg-slate-600',
-        bg: 'bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800',
+        color: 'bg-slate-700',
+        bg: 'bg-white dark:bg-gray-900 border-2 border-slate-300 dark:border-slate-700 shadow-sm',
         textColor: 'text-slate-950 dark:text-slate-200',
       }
     ] : []),
   ];
 
+  const getAutoFitSize = (val: string) => {
+    const len = val.length;
+    if (len > 18) return 'text-xl sm:text-2xl md:text-3xl';
+    if (len > 13) return 'text-2xl sm:text-3xl md:text-4xl';
+    if (len > 8) return 'text-3xl sm:text-4xl md:text-5xl';
+    return 'text-4xl sm:text-5xl';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
       <Header />
       
-      <div className="flex-1 p-6 md:p-12 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 md:p-12 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-6 mb-12">
+          <div className="flex items-center gap-4 sm:gap-6 mb-8 sm:mb-12">
             <Link 
               href="/"
-              className="p-4 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-[1.5rem] transition-all text-gray-600 dark:text-gray-300 hover:text-gray-950 dark:hover:text-white border border-gray-200 dark:border-gray-800 shadow-sm"
+              className="p-3.5 sm:p-4 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl sm:rounded-[1.5rem] transition-all text-gray-800 dark:text-gray-200 hover:text-gray-950 dark:hover:text-white border-2 border-gray-200 dark:border-gray-800 shadow-xs shrink-0"
+              title="Back to Dashboard"
             >
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
             </Link>
             <div>
-              <h2 className="text-4xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight">Daily Summary</h2>
-              <p className="text-lg text-gray-600 dark:text-gray-300 font-bold flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight">
+                Daily Summary
+              </h2>
+              <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 font-bold flex items-center gap-2 mt-1">
+                <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400 stroke-[2.5]" />
                 {new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
             {cards.map((card, index) => (
               <motion.div
                 key={card.title}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`${card.bg} p-10 rounded-[3rem] hover:shadow-2xl transition-all flex flex-col justify-between h-full group`}
+                transition={{ delay: index * 0.05 }}
+                className={`${card.bg} p-6 sm:p-8 md:p-10 rounded-3xl sm:rounded-[2.5rem] hover:shadow-xl transition-all flex flex-col justify-between h-full group min-w-0 overflow-hidden`}
               >
-                <div className={`${card.color} w-16 h-16 rounded-2xl flex items-center justify-center mb-8 text-white shadow-xl group-hover:scale-110 transition-transform`}>
-                  <card.icon className="w-8 h-8" />
+                <div className={`${card.color} w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-6 sm:mb-8 text-white shadow-xl group-hover:scale-105 transition-transform shrink-0`}>
+                  <card.icon className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.5]" />
                 </div>
-                <div>
-                  <p className="text-gray-700 dark:text-gray-300 font-black text-xs uppercase tracking-widest mb-2">{card.title}</p>
-                  <p className={`${card.textColor} font-black text-4xl tracking-tight`}>{card.value}</p>
+                <div className="min-w-0 w-full">
+                  <p className="text-gray-900 dark:text-gray-100 font-black text-xs sm:text-sm uppercase tracking-wider mb-2">
+                    {card.title}
+                  </p>
+                  <p 
+                    title={card.value}
+                    className={`${card.textColor} ${getAutoFitSize(card.value)} font-black tracking-tight leading-tight truncate min-w-0 max-w-full`}
+                  >
+                    {card.value}
+                  </p>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          <div className="mt-12 p-8 bg-gray-950 dark:bg-gray-900 border border-gray-800 rounded-[3rem] text-white text-center shadow-2xl relative overflow-hidden">
+          <div className="mt-8 sm:mt-12 p-6 sm:p-8 bg-gray-950 dark:bg-gray-900 border-2 border-gray-800 rounded-3xl sm:rounded-[2.5rem] text-white text-center shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600 rounded-full -mr-32 -mt-32 opacity-20 blur-3xl" />
-             <p className="text-orange-400 font-black text-xs uppercase tracking-widest mb-4 relative z-10">End of Day Summary</p>
-             <h3 className="text-2xl font-black mb-8 relative z-10 tracking-tight">Great job today! Your store is performing well.</h3>
+             <p className="text-orange-400 font-black text-xs uppercase tracking-widest mb-3 relative z-10">End of Day Summary</p>
+             <h3 className="text-xl sm:text-2xl font-black mb-6 sm:mb-8 relative z-10 tracking-tight">Great job today! Your store is performing well.</h3>
              <Link 
                href="/reports"
-               className="inline-flex items-center gap-3 bg-white text-gray-950 font-black px-12 py-5 rounded-[2rem] hover:bg-gray-100 transition-all active:scale-95 uppercase tracking-widest text-sm relative z-10 cursor-pointer shadow-lg"
+               className="inline-flex items-center gap-2.5 bg-white text-gray-950 font-black px-8 sm:px-12 py-4 sm:py-5 rounded-2xl hover:bg-gray-100 transition-all active:scale-95 uppercase tracking-wider text-xs sm:text-sm relative z-10 cursor-pointer shadow-lg"
              >
                View Full Reports Dashboard
              </Link>

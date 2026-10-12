@@ -1,12 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { StoreInfo, Product, Branch } from '@/lib/db/idb';
 import { storeService } from '@/lib/services/store-service';
 import { productService } from '@/lib/services/product-service';
 import { branchService } from '@/lib/services/branch-service';
 import { auditService } from '@/lib/services/audit-service';
 import { pullSync, processQueue } from '@/lib/db/sync-queue';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 const CURRENT_BRANCH_KEY = 'sarisari_current_branch_id';
 
@@ -18,21 +19,24 @@ interface StoreContextType {
   products: Product[];
   allProducts: Product[];
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'isDeleted'>) => Promise<Product>;
-  branches: Branch[];
+  branches: Branch[]; // Authorized branches for current user
+  allBranches: Branch[]; // All branches in system for Admin oversight
   currentBranchId: string | null;
   currentBranch: Branch | undefined;
   addBranch: (branch: Omit<Branch, 'id' | 'createdAt' | 'updatedAt' | 'businessId' | 'isDeleted'>) => Promise<Branch>;
   updateBranch: (branch: Branch) => Promise<void>;
   deleteBranch: (id: string) => Promise<void>;
   switchBranch: (branchId: string) => void;
+  isBranchAuthorized: (branchId: string) => boolean;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const { user, isAdmin } = useAuth();
   const [store, setStore] = useState<StoreInfo | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [allBranches, setAllBranches] = useState<Branch[]>([]);
   const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,8 +49,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // Load Branches
       const businessId = currentStore?.id || 'main_config';
-      const allBranchesInDb = (await branchService.getAll()).filter(b => !b.isDeleted);
+      let allBranchesInDb = (await branchService.getAll()).filter(b => !b.isDeleted);
       
+      // Auto-clean any legacy branch named "JHEFF CONSTRUCTION BRANCH"
+      const legacyBranches = allBranchesInDb.filter(b => b.name?.trim().toUpperCase() === 'JHEFF CONSTRUCTION BRANCH');
+      if (legacyBranches.length > 0) {
+        const nonLegacy = allBranchesInDb.filter(b => b.name?.trim().toUpperCase() !== 'JHEFF CONSTRUCTION BRANCH');
+        for (const lb of legacyBranches) {
+          if (nonLegacy.length > 0) {
+            lb.isDeleted = true;
+            lb.updatedAt = Date.now();
+            await branchService.update(lb);
+          } else {
+            lb.name = 'Main Branch';
+            lb.updatedAt = Date.now();
+            await branchService.update(lb);
+          }
+        }
+        allBranchesInDb = (await branchService.getAll()).filter(b => !b.isDeleted && b.name?.trim().toUpperCase() !== 'JHEFF CONSTRUCTION BRANCH');
+      }
+
       let activeBranches = allBranchesInDb.filter(b => b.businessId === businessId);
       
       // If branches exist in DB but under different businessId, reuse them instead of creating duplicates
@@ -60,7 +82,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const now = Date.now();
         const mainBranch: Branch = {
           id,
-          name: 'JHEFF CONSTRUCTION BRANCH',
+          name: 'Main Branch',
           address: currentStore?.address || 'Main Address',
           businessId,
           createdAt: now,
@@ -72,19 +94,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         await auditService.log('BRANCH_AUTO_CREATE', JSON.stringify({ name: mainBranch.name, id }));
       }
 
-      setBranches(activeBranches.sort((a, b) => b.createdAt - a.createdAt));
-
-      // Initialize current branch
-      const savedId = localStorage.getItem(CURRENT_BRANCH_KEY);
-      if (activeBranches.length > 0) {
-        if (!savedId || !activeBranches.find(b => b.id === savedId)) {
-          const defaultId = activeBranches[0].id;
-          setCurrentBranchId(defaultId);
-          localStorage.setItem(CURRENT_BRANCH_KEY, defaultId);
-        } else {
-          setCurrentBranchId(savedId);
-        }
-      }
+      const sortedBranches = activeBranches.sort((a, b) => b.createdAt - a.createdAt);
+      setAllBranches(sortedBranches);
 
       const allProducts = await productService.getAll();
       setProducts(allProducts.sort((a, b) => b.createdAt - a.createdAt));
@@ -115,7 +126,82 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Compute authorized branches for the logged-in user:
+  // Admins oversee ALL branches
+  // Authorized cashiers/users only get their assigned branches
+  const authorizedBranches = useMemo(() => {
+    if (!user) {
+      return allBranches;
+    }
+    if (isAdmin) {
+      return allBranches;
+    }
+    const assignedIds = user.assignedBranchIds || [];
+    return allBranches.filter(b => assignedIds.includes(b.id));
+  }, [user, isAdmin, allBranches]);
+
+  // Synchronize currentBranchId with user authorization & active branches
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      // Not logged in or waiting for auth
+      const savedId = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_BRANCH_KEY) : null;
+      if (savedId && allBranches.some(b => b.id === savedId)) {
+        setCurrentBranchId(savedId);
+      } else if (allBranches.length > 0) {
+        setCurrentBranchId(allBranches[0].id);
+      }
+      return;
+    }
+
+    if (isAdmin) {
+      // Admin has permission across all branches
+      const savedId = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_BRANCH_KEY) : null;
+      if (savedId && allBranches.some(b => b.id === savedId)) {
+        setCurrentBranchId(savedId);
+      } else if (allBranches.length > 0) {
+        const defaultId = allBranches[0].id;
+        setCurrentBranchId(defaultId);
+        localStorage.setItem(CURRENT_BRANCH_KEY, defaultId);
+      } else {
+        setCurrentBranchId(null);
+      }
+    } else {
+      // Non-admin / Cashier: ISOLATE strictly to authorized branches
+      const assignedIds = user.assignedBranchIds || [];
+      const userBranches = allBranches.filter(b => assignedIds.includes(b.id));
+
+      if (userBranches.length > 0) {
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_BRANCH_KEY) : null;
+        if (savedId && userBranches.some(b => b.id === savedId)) {
+          setCurrentBranchId(savedId);
+        } else {
+          // Force to first authorized branch
+          const defaultId = userBranches[0].id;
+          setCurrentBranchId(defaultId);
+          localStorage.setItem(CURRENT_BRANCH_KEY, defaultId);
+        }
+      } else {
+        // User has no assigned branches
+        setCurrentBranchId(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(CURRENT_BRANCH_KEY);
+        }
+      }
+    }
+  }, [user, isAdmin, allBranches, loading]);
+
+  const isBranchAuthorized = (branchId: string): boolean => {
+    if (isAdmin) return true;
+    if (!user) return false;
+    return (user.assignedBranchIds || []).includes(branchId);
+  };
+
   const addBranch = async (branch: Omit<Branch, 'id' | 'createdAt' | 'updatedAt' | 'businessId' | 'isDeleted'>) => {
+    if (user && !isAdmin) {
+      throw new Error('Only administrators are authorized to add new branches.');
+    }
     const businessId = store?.id || 'main_config';
     const id = crypto.randomUUID();
     const now = Date.now();
@@ -134,23 +220,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateBranch = async (branch: Branch) => {
+    if (user && !isAdmin) {
+      throw new Error('Only administrators are authorized to modify branches.');
+    }
     await branchService.update(branch);
     await auditService.log('BRANCH_UPDATE', JSON.stringify({ name: branch.name, id: branch.id }));
     await loadStore();
   };
 
   const deleteBranch = async (id: string) => {
+    if (user && !isAdmin) {
+      throw new Error('Only administrators are authorized to delete branches.');
+    }
     await branchService.delete(id);
     await auditService.log('BRANCH_DELETE', JSON.stringify({ id }));
     await loadStore();
   };
 
   const switchBranch = (branchId: string) => {
+    if (!isBranchAuthorized(branchId)) {
+      console.warn('Unauthorized branch switch attempt prevented:', branchId);
+      return;
+    }
+    const targetBranch = allBranches.find(b => b.id === branchId);
+    if (!targetBranch) return;
+
     setCurrentBranchId(branchId);
-    localStorage.setItem(CURRENT_BRANCH_KEY, branchId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CURRENT_BRANCH_KEY, branchId);
+    }
   };
 
-  const currentBranch = branches.find(b => b.id === currentBranchId);
+  const currentBranch = allBranches.find(b => b.id === currentBranchId);
 
   const filteredProducts = products.filter(p => p.branchId === currentBranchId);
 
@@ -219,13 +320,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       products: filteredProducts, 
       allProducts: products,
       addProduct,
-      branches,
+      branches: authorizedBranches,
+      allBranches,
       currentBranchId,
       currentBranch,
       addBranch,
       updateBranch,
       deleteBranch,
-      switchBranch
+      switchBranch,
+      isBranchAuthorized,
     }}>
       {children}
     </StoreContext.Provider>

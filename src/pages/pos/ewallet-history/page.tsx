@@ -16,20 +16,52 @@ import {
   Hash,
   Filter,
   Download,
-  Printer
+  Printer,
+  MapPin,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { EWalletTransaction } from '@/lib/db/idb';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 export default function EWalletHistoryPage() {
-  const { currentBranchId, currentBranch } = useBranches();
+  const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
+  const { isAdmin } = useAuth();
   const { transactions, loading } = useEWallet(currentBranchId || undefined);
   const { showReceipt } = useReceipt();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'cash_in' | 'cash_out'>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<EWalletTransaction | null>(null);
+
+  const isAuthorized = isAdmin || (!!currentBranchId && isBranchAuthorized(currentBranchId));
+
+  if (!loadingBranches && (!currentBranchId || !isAuthorized)) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-[3rem] p-12 text-center border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none">
+            <div className="w-24 h-24 bg-red-50 dark:bg-rose-950/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-red-600 dark:text-red-400">
+              <MapPin className="w-12 h-12" />
+            </div>
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed mb-8">
+              You are not authorized to view e-wallet history for this branch.
+            </p>
+            <Link 
+              href="/"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gray-900 dark:bg-gray-800 hover:bg-black dark:hover:bg-gray-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {

@@ -39,9 +39,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function POSPage() {
-  const { currentBranchId, currentBranch, loading: loadingBranches } = useBranches();
-  const { store, getNextORNumber, products, addProduct } = useStore();
-  const { updateProduct, refresh } = useProducts(currentBranchId || undefined);
+  const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
+  const { store, getNextORNumber, addProduct } = useStore();
+  const { products, updateProduct, refresh } = useProducts(currentBranchId || undefined);
   const { cart, addToCart, updateQuantity, setItemQuantity, removeFromCart, clearCart, total } = useCart();
   const { customers, addCustomer, recordCredit } = useCustomers(currentBranchId || undefined);
   const { addTransaction } = useTransactions(currentBranchId || undefined);
@@ -314,7 +314,9 @@ export default function POSPage() {
     setIsEWalletOpen(false);
   };
 
-  if (!loadingBranches && !currentBranchId) {
+  const isAuthorized = !!currentBranchId && isBranchAuthorized(currentBranchId);
+
+  if (!loadingBranches && !isAuthorized) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
@@ -325,7 +327,7 @@ export default function POSPage() {
             </div>
             <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase mb-4">No Branch Access</h2>
             <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed mb-8">
-              You haven&apos;t been assigned to any branches yet. Please contact your administrator to get access.
+              You are not authorized to access this branch. Please contact your administrator to get access.
             </p>
             <Link 
               href="/"
