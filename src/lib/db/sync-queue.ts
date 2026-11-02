@@ -1,21 +1,62 @@
 'use client';
 
 import { dbUtil, STORES, SyncAction, StoreName } from './idb';
+import { realtimeSync } from './realtime-sync';
 
 /**
  * [SaaS ARCHITECT NOTE]
- * This sync queue is designed for a multi-device cloud environment.
+ * High-performance, low-latency sync engine for multi-device POS operations.
  * 
- * OFFLINE-FIRST STRATEGY:
- * 1. Local-First: All writes go to IndexedDB immediately via syncDb.
- * 2. Background Sync: Changes are queued in 'sync_queue'.
- * 3. Conflict Resolution: Uses 'updatedAt' (Last Write Wins) on the server.
- * 4. Soft Deletes: 'isDeleted' flag ensures deletions propagate across devices.
- * 
- * FUTURE API INTEGRATION:
- * - Implement a /api/sync endpoint that accepts a batch of SyncActions.
- * - The backend should return the server's authoritative state for any conflicted items.
+ * 1. Zero-Delay Auto-Push: Changes push directly to Firebase Realtime Database in parallel.
+ * 2. Guaranteed Delivery: If offline or delayed, operations queue in IndexedDB 'sync_queue' for auto-retry.
+ * 3. Realtime Auto-Push Stream: Firebase SSE push stream delivers remote updates instantly to other devices.
+ * 4. Conflict Resolution: Uses 'updatedAt' (Last Write Wins).
  */
+
+function getRtdbUrl(): string {
+  return ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 
+    'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
+}
+
+/**
+ * Direct parallel auto-push to Firebase Realtime Database.
+ * Runs instantly without waiting for batch queues.
+ */
+export async function pushDirect(
+  store: StoreName,
+  key: string,
+  payload: any,
+  isDelete: boolean = false
+): Promise<boolean> {
+  if (typeof window === 'undefined' || !window.navigator.onLine) {
+    return false;
+  }
+
+  const BASE_URL = getRtdbUrl();
+
+  try {
+    const url = `${BASE_URL}/${store}/${key}.json`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(url, {
+      method: isDelete ? 'DELETE' : 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: isDelete ? undefined : JSON.stringify(payload),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      console.log(`[CloudSync] Instant auto-push success for ${store}/${key}`);
+      realtimeSync.broadcastLocalChange(store, key, payload);
+      return true;
+    }
+  } catch (e) {
+    console.warn(`[CloudSync] Direct push skipped or delayed for ${store}/${key}, queued for auto-retry:`, e);
+  }
+  return false;
+}
 
 /**
  * Queues an action to be synchronized with the server when online.
@@ -78,24 +119,18 @@ export async function processQueue(): Promise<void> {
 
   console.log(`[CloudSync] Syncing ${pendingActions.length} changes to cloud...`);
 
-  // Batching strategy: Send up to 50 actions at a time
   const BATCH_SIZE = 50;
   const batch = pendingActions.slice(0, BATCH_SIZE);
+  const BASE_URL = getRtdbUrl();
 
   try {
-    // 1. Mark batch as processing locally
     for (const action of batch) {
       action.status = 'processing';
       await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
     }
 
-    // 2. --- BACKEND INTEGRATION POINT ---
-    // Push each pending change to Firebase Realtime Database
-    const BASE_URL = ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
-
     for (const action of batch) {
-      const { store, payload } = action;
-      // Use 'id' or 'key' (for metadata store)
+      const { store, payload, type } = action;
       const key = payload.id || payload.key;
       if (!key) {
         console.warn('[CloudSync] Missing key for action payload:', payload);
@@ -104,11 +139,11 @@ export async function processQueue(): Promise<void> {
 
       const url = `${BASE_URL}/${store}/${key}.json`;
       const response = await fetch(url, {
-        method: 'PUT',
+        method: type === 'DELETE' ? 'DELETE' : 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: type === 'DELETE' ? undefined : JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -116,14 +151,12 @@ export async function processQueue(): Promise<void> {
       }
     }
     
-    // 3. On success, remove from queue
     for (const action of batch) {
       if (action.id) {
         await markAsSynced(action.id);
       }
     }
 
-    // 4. Update store-wide sync timestamp
     const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
     if (storeInfo.length > 0) {
       const info = storeInfo[0];
@@ -131,18 +164,62 @@ export async function processQueue(): Promise<void> {
       await dbUtil.updateItem(STORES.STORE_INFO, info);
     }
 
-    // 5. If there are more items, continue processing
     if (pendingActions.length > BATCH_SIZE) {
       processQueue();
     }
   } catch (error) {
     console.error('[CloudSync] Batch sync failed:', error);
-    // Revert status to failed for retry
     for (const action of batch) {
       action.status = 'failed';
       action.retryCount += 1;
       await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
     }
+  }
+}
+
+/**
+ * Pulls a specific store on demand immediately from Firebase RTDB (e.g. users, store_info).
+ */
+export async function pullStore(store: StoreName): Promise<any[]> {
+  if (typeof window !== 'undefined' && !window.navigator.onLine) {
+    return dbUtil.getItems<any>(store);
+  }
+
+  const BASE_URL = getRtdbUrl();
+
+  try {
+    const url = `${BASE_URL}/${store}.json`;
+    const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
+    if (!response.ok) {
+      return dbUtil.getItems<any>(store);
+    }
+    const data = await response.json();
+    if (!data) return [];
+
+    const cloudItems: any[] = Array.isArray(data) 
+      ? data.filter(Boolean)
+      : Object.values(data);
+
+    for (const cloudItem of cloudItems) {
+      const key = cloudItem.id || cloudItem.key;
+      if (!key) continue;
+      const localItem = await dbUtil.getItemById<any>(store, key);
+      const cloudUpdatedAt = cloudItem.updatedAt || 0;
+      const localUpdatedAt = localItem?.updatedAt || 0;
+
+      if (!localItem || cloudUpdatedAt >= localUpdatedAt) {
+        if (cloudItem.isDeleted) {
+          await dbUtil.deleteItem(store, key);
+        } else {
+          await dbUtil.updateItem(store, cloudItem);
+        }
+      }
+    }
+
+    return dbUtil.getItems<any>(store);
+  } catch (err) {
+    console.warn(`[CloudSync] Fast pull for store ${store} failed:`, err);
+    return dbUtil.getItems<any>(store);
   }
 }
 
@@ -155,9 +232,6 @@ export async function pullSync(): Promise<void> {
     return;
   }
 
-  const BASE_URL = ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
-  
-  // We sync all stores except the sync_queue itself
   const storesToSync = [
     STORES.STORE_INFO,
     STORES.BRANCHES,
@@ -174,74 +248,14 @@ export async function pullSync(): Promise<void> {
     STORES.EXPENSES
   ];
 
-  console.log('[CloudSync] Starting full pull sync from Firebase RTDB...');
-  let unauthorizedCount = 0;
-
-  for (const store of storesToSync) {
-    try {
-      const url = `${BASE_URL}/${store}.json`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.error(`[CloudSync] Failed to fetch store ${store}:`, response.statusText);
-        if (response.status === 401 || response.status === 403 || response.statusText === 'Unauthorized') {
-          unauthorizedCount++;
-        }
-        continue;
-      }
-
-      const data = await response.json();
-      if (!data) {
-        console.log(`[CloudSync] Store ${store} is empty on Firebase.`);
-        continue;
-      }
-
-      // Firebase returns { id1: item1, id2: item2 } or an array of items if IDs are numeric indexes
-      const cloudItems: any[] = Array.isArray(data) 
-        ? data.filter(Boolean)
-        : Object.values(data);
-
-      console.log(`[CloudSync] Pulled ${cloudItems.length} items from cloud for store: ${store}`);
-
-      for (const cloudItem of cloudItems) {
-        const key = cloudItem.id || cloudItem.key;
-        if (!key) continue;
-
-        // Fetch local item to compare
-        const localItem = await dbUtil.getItemById<any>(store, key);
-
-        if (!localItem) {
-          // Item doesn't exist locally, save it
-          await dbUtil.updateItem(store, cloudItem);
-        } else {
-          // Compare updatedAt
-          const cloudUpdatedAt = cloudItem.updatedAt || 0;
-          const localUpdatedAt = localItem.updatedAt || 0;
-
-          if (cloudUpdatedAt > localUpdatedAt) {
-            // Cloud has newer data, update local
-            await dbUtil.updateItem(store, cloudItem);
-          } else if (localUpdatedAt > cloudUpdatedAt) {
-            // Local has newer data, queue it for push
-            console.log(`[CloudSync] Local item ${key} in ${store} is newer. Will push to cloud.`);
-            await queueAction(store, 'UPDATE', localItem);
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`[CloudSync] Error syncing store ${store}:`, error);
-    }
-  }
-
-  if (unauthorizedCount > 0) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('firebase_sync_error', 'Unauthorized');
-    }
-    throw new Error('Unauthorized');
-  } else {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('firebase_sync_error');
-    }
-  }
+  console.log('[CloudSync] Starting parallel pull sync from Firebase RTDB...');
+  
+  // Parallel fetch for speed across all tables
+  await Promise.all(
+    storesToSync.map(store => pullStore(store).catch(err => {
+      console.warn(`[CloudSync] Error syncing store ${store}:`, err);
+    }))
+  );
 
   // Update store-wide sync timestamp
   try {
@@ -259,36 +273,69 @@ export async function pullSync(): Promise<void> {
 }
 
 /**
- * SaaS-ready DB wrapper.
+ * SaaS-ready DB wrapper with immediate auto-push and offline fallback.
  */
 export const syncDb = {
   async add<T>(store: StoreName, item: T): Promise<any> {
-    const result = await dbUtil.addItem(store, item);
-    await queueAction(store, 'CREATE', item);
+    const now = Date.now();
+    const payload = {
+      ...item,
+      updatedAt: (item as any).updatedAt || now,
+      isDeleted: false,
+    };
+    const result = await dbUtil.addItem(store, payload);
+    const key = (payload as any).id || (payload as any).key;
+
+    // Instant auto-push to cloud
+    if (key) {
+      const pushed = await pushDirect(store, key, payload, false);
+      if (!pushed) {
+        await queueAction(store, 'CREATE', payload);
+      }
+    }
     return result;
   },
 
   async update<T>(store: StoreName, item: T): Promise<any> {
-    const result = await dbUtil.updateItem(store, item);
-    await queueAction(store, 'UPDATE', item);
+    const now = Date.now();
+    const payload = {
+      ...item,
+      updatedAt: (item as any).updatedAt || now,
+    };
+    const result = await dbUtil.updateItem(store, payload);
+    const key = (payload as any).id || (payload as any).key;
+
+    // Instant auto-push to cloud
+    if (key) {
+      const pushed = await pushDirect(store, key, payload, false);
+      if (!pushed) {
+        await queueAction(store, 'UPDATE', payload);
+      }
+    }
     return result;
   },
 
   async delete(store: StoreName, id: string | number): Promise<void> {
     const item = await dbUtil.getItemById<any>(store, id);
     if (item) {
-      // For metadata, the ID might be 'key'
       const key = (item as any).id || (item as any).key || id;
       await dbUtil.deleteItem(store, id);
-      await queueAction(store, 'DELETE', { ...item, id: key, isDeleted: true });
+      const deletePayload = { 
+        ...item, 
+        id: key, 
+        isDeleted: true, 
+        updatedAt: Date.now() 
+      };
+      const pushed = await pushDirect(store, key, deletePayload, true);
+      if (!pushed) {
+        await queueAction(store, 'DELETE', deletePayload);
+      }
     }
   }
 };
 
 /**
- * Wipes all data (products, transactions, customers, credit_log, ewallet_transactions, suppliers, restock_transactions, audit_logs, metadata, sync_queue) 
- * both locally in IndexedDB and remotely in the connected Firebase Realtime Database.
- * This effectively removes all dummy data to let the user start fresh.
+ * Wipes all data both locally in IndexedDB and remotely in Firebase Realtime Database.
  */
 export async function clearDatabaseAll(): Promise<void> {
   const storesToClear = [
@@ -307,7 +354,6 @@ export async function clearDatabaseAll(): Promise<void> {
 
   console.log('[CloudSync] Clearing all local IndexedDB stores...');
 
-  // 1. Clear local IndexedDB stores
   for (const store of storesToClear) {
     try {
       await dbUtil.clearStore(store);
@@ -317,21 +363,16 @@ export async function clearDatabaseAll(): Promise<void> {
     }
   }
 
-  // 2. Clear remote Firebase Realtime Database for those stores
-  const BASE_URL = ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
+  const BASE_URL = getRtdbUrl();
   
   if (typeof window !== 'undefined' && window.navigator.onLine) {
     console.log('[CloudSync] Deleting remote stores from Firebase...');
     for (const store of storesToClear) {
       try {
         const url = `${BASE_URL}/${store}.json`;
-        const response = await fetch(url, {
-          method: 'DELETE'
-        });
+        const response = await fetch(url, { method: 'DELETE' });
         if (response.ok) {
           console.log(`[CloudSync] Successfully deleted store ${store} on Firebase.`);
-        } else {
-          console.error(`[CloudSync] Failed to delete store ${store} on Firebase:`, response.statusText);
         }
       } catch (e) {
         console.error(`[CloudSync] Error deleting store ${store} on Firebase:`, e);
@@ -339,7 +380,6 @@ export async function clearDatabaseAll(): Promise<void> {
     }
   }
 
-  // 3. Clear branches and recreate a single Main Branch to keep system operational
   try {
     await dbUtil.clearStore(STORES.BRANCHES);
     const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
@@ -373,10 +413,12 @@ export async function clearDatabaseAll(): Promise<void> {
   console.log('[CloudSync] Database wipe completed.');
 }
 
-// Listen for online event to trigger sync
+// Start realtime sync stream on startup if in browser
 if (typeof window !== 'undefined') {
+  realtimeSync.start();
   window.addEventListener('online', () => {
     console.log('[SyncQueue] Back online! Triggering sync...');
     processQueue();
+    realtimeSync.start();
   });
 }

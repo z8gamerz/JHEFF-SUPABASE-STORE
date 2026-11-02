@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { User } from '@/lib/db/idb';
+import { User, STORES } from '@/lib/db/idb';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { userService } from '@/lib/services/user-service';
 import { auditService } from '@/lib/services/audit-service';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 export function useUsers() {
   const { user: currentUser, isAdmin } = useAuth();
@@ -34,6 +35,12 @@ export function useUsers() {
 
   useEffect(() => {
     fetchUsers();
+
+    const unsubscribe = realtimeSync.subscribe([STORES.USERS], () => {
+      fetchUsers();
+    });
+
+    return () => unsubscribe();
   }, [fetchUsers]);
 
   const updateUserBranches = async (userId: string, branchIds: string[]) => {

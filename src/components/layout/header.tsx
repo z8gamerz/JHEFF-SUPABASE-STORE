@@ -9,6 +9,7 @@ import { BranchManagement } from '../branches/branch-management';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { pullSync, processQueue } from '@/lib/db/sync-queue';
+import { realtimeSync, RealtimeStatus } from '@/lib/db/realtime-sync';
 import { PWAInstallButton } from '@/components/pwa/pwa-install-button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
@@ -21,12 +22,20 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [hasSyncError, setHasSyncError] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<RealtimeStatus>(() => realtimeSync.getStatus());
+
+  useEffect(() => {
+    const unsub = realtimeSync.subscribeStatus((st) => {
+      setStreamStatus(st);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setHasSyncError(localStorage.getItem('firebase_sync_error') === 'Unauthorized');
     }
-  }, [isSyncing]);
+  }, [isSyncing, streamStatus]);
 
   const handleSync = async () => {
     if (isSyncing) return;
@@ -35,13 +44,13 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
     try {
       await pullSync();
       await processQueue();
+      realtimeSync.start();
       setSyncSuccess(true);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('firebase_sync_error');
         setHasSyncError(false);
       }
       setTimeout(() => setSyncSuccess(false), 3000);
-      window.location.reload();
     } catch (error) {
       console.error('Manual sync failed:', error);
       if (typeof window !== 'undefined') {
@@ -88,7 +97,7 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
         {/* PWA Install Button */}
         <PWAInstallButton variant="header" />
 
-        {/* Firebase Sync Button */}
+        {/* Firebase Live Webhook / Auto-Push Sync Button */}
         <button
           onClick={handleSync}
           disabled={isSyncing}
@@ -99,17 +108,32 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
               ? 'bg-green-50 dark:bg-emerald-950/40 border-green-200 dark:border-emerald-800 text-green-600 dark:text-emerald-400'
               : hasSyncError
               ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 animate-pulse'
+              : streamStatus === 'connected'
+              ? 'bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 shadow-xs'
               : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 shadow-xs'
           }`}
-          title={hasSyncError ? "Firebase rules are blocking sync. Click to retry." : "Synchronize data with Firebase Realtime Database"}
+          title={
+            hasSyncError 
+              ? "Firebase rules are blocking sync. Click to retry." 
+              : streamStatus === 'connected'
+              ? "Live Auto-Push Stream Active: Updates sync to/from all logged-in devices in real-time."
+              : "Click to force refresh data with Firebase Realtime Database"
+          }
         >
           {hasSyncError && !isSyncing && !syncSuccess ? (
             <CloudLightning className="w-3.5 h-3.5 text-rose-500" />
+          ) : isSyncing ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          ) : streamStatus === 'connected' ? (
+            <span className="relative flex h-2 w-2 mr-0.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
           ) : (
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-3.5 h-3.5" />
           )}
           <span className="hidden md:inline">
-            {isSyncing ? 'Syncing...' : syncSuccess ? 'Synced' : hasSyncError ? 'Auth Error' : 'Sync'}
+            {isSyncing ? 'Syncing...' : syncSuccess ? 'Synced' : hasSyncError ? 'Auth Error' : streamStatus === 'connected' ? 'Live Auto-Push' : 'Sync'}
           </span>
         </button>
 

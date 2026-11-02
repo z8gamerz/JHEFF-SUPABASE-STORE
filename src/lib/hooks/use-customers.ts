@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Customer, CreditEntry } from '@/lib/db/idb';
+import { Customer, CreditEntry, STORES } from '@/lib/db/idb';
 import { customerService } from '@/lib/services/customer-service';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 export function useCustomers(branchId?: string) {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -27,6 +28,12 @@ export function useCustomers(branchId?: string) {
 
   useEffect(() => {
     fetchCustomers();
+
+    const unsubscribe = realtimeSync.subscribe([STORES.CUSTOMERS, STORES.CREDIT_LOG], () => {
+      fetchCustomers();
+    });
+
+    return () => unsubscribe();
   }, [fetchCustomers]);
 
   const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalUtang' | 'branchId' | 'isDeleted'>): Promise<Customer> => {

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Expense } from '@/lib/db/idb';
+import { Expense, STORES } from '@/lib/db/idb';
 import { expenseService } from '@/lib/services/expense-service';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 export function useExpenses(branchId?: string) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -27,6 +28,12 @@ export function useExpenses(branchId?: string) {
 
   useEffect(() => {
     fetchExpenses();
+
+    const unsubscribe = realtimeSync.subscribe([STORES.EXPENSES], () => {
+      fetchExpenses();
+    });
+
+    return () => unsubscribe();
   }, [fetchExpenses]);
 
   const addExpense = async (expense: Omit<Expense, 'id' | 'branchId' | 'updatedAt' | 'isDeleted' | 'timestamp'>) => {

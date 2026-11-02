@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Product } from '@/lib/db/idb';
+import { Product, STORES } from '@/lib/db/idb';
 import { productService } from '@/lib/services/product-service';
 import { auditService } from '@/lib/services/audit-service';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 export function useProducts(branchId?: string) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -29,6 +30,13 @@ export function useProducts(branchId?: string) {
 
   useEffect(() => {
     fetchProducts();
+
+    // Auto-listen to cloud webhook / realtime stream pushes
+    const unsubscribe = realtimeSync.subscribe([STORES.PRODUCTS], () => {
+      fetchProducts();
+    });
+
+    return () => unsubscribe();
   }, [fetchProducts]);
 
   const addProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'isDeleted'>) => {

@@ -8,6 +8,8 @@ import { branchService } from '@/lib/services/branch-service';
 import { auditService } from '@/lib/services/audit-service';
 import { pullSync, processQueue } from '@/lib/db/sync-queue';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { STORES } from '@/lib/db/idb';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 const CURRENT_BRANCH_KEY = 'sarisari_current_branch_id';
 
@@ -124,6 +126,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       })();
     }
+
+    // 3. Realtime Webhook & SSE Stream subscription
+    const unsubscribe = realtimeSync.subscribe(
+      [STORES.STORE_INFO, STORES.BRANCHES, STORES.PRODUCTS],
+      () => {
+        loadStore(true);
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
 
   // Compute authorized branches for the logged-in user:

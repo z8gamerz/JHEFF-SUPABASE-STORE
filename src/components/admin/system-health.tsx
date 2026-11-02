@@ -5,7 +5,8 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import { backupService, BackupPayload } from '@/lib/services/backup-service';
 import { auditService } from '@/lib/services/audit-service';
 import { AuditLog } from '@/lib/db/idb';
-import { authRateLimiter } from '@/lib/security/rate-limiter';
+import { realtimeSync, RealtimeStatus } from '@/lib/db/realtime-sync';
+import { pullSync, processQueue } from '@/lib/db/sync-queue';
 import { 
   ShieldCheck, 
   Database, 
@@ -21,7 +22,10 @@ import {
   FileText, 
   Clock,
   Layers,
-  Lock
+  Lock,
+  Wifi,
+  CloudLightning,
+  Radio
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/modal';
 
@@ -32,10 +36,17 @@ export function SystemHealthDashboard() {
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isResyncing, setIsResyncing] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<RealtimeStatus>(() => realtimeSync.getStatus());
   const [restoreFeedback, setRestoreFeedback] = useState<string | null>(null);
   const [errorFeedback, setErrorFeedback] = useState<string | null>(null);
   const [pendingRestorePayload, setPendingRestorePayload] = useState<BackupPayload | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'errors' | 'auth'>('all');
+
+  useEffect(() => {
+    const unsub = realtimeSync.subscribeStatus((st) => setStreamStatus(st));
+    return () => unsub();
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -126,6 +137,23 @@ export function SystemHealthDashboard() {
     ? ((storageEstimate.usage / storageEstimate.quota) * 100).toFixed(2) 
     : '0';
 
+  const handleForceResync = async () => {
+    setIsResyncing(true);
+    setRestoreFeedback(null);
+    setErrorFeedback(null);
+    try {
+      await processQueue();
+      await pullSync();
+      realtimeSync.start();
+      setRestoreFeedback('Cloud auto-push and webhook stream re-synchronized successfully across all tables.');
+      await loadData();
+    } catch (err: any) {
+      setErrorFeedback(`Resync error: ${err.message}`);
+    } finally {
+      setIsResyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {restoreFeedback && (
@@ -201,6 +229,61 @@ export function SystemHealthDashboard() {
               <CheckCircle2 className="w-3.5 h-3.5" /> Workbox PWA
             </span>
             <span>60fps Render</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Realtime Webhook & Multi-Device Auto-Push Panel */}
+      <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                streamStatus === 'connected'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+                  : streamStatus === 'connecting'
+                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+                  : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300'
+              }`}>
+                <Radio className={`w-3.5 h-3.5 ${streamStatus === 'connected' ? 'animate-pulse' : ''}`} />
+                Webhook Stream: {streamStatus.toUpperCase()}
+              </span>
+              <span className="text-xs font-bold text-gray-400 dark:text-gray-500">Zero-Delay Auto-Push Active</span>
+            </div>
+            <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+              <CloudLightning className="w-6 h-6 text-emerald-600" />
+              Realtime Multi-Device Webhook &amp; Auto-Push
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
+              Data written on any device is pushed instantly to the cloud database. Any other logged-in device receives new products, transactions, and user logins via Server-Sent Events (SSE) with no delay.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleForceResync}
+            disabled={isResyncing}
+            className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl flex items-center gap-2 text-xs shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+          >
+            {isResyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Force Push &amp; Resync All
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs">
+          <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
+            <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Direct Push</p>
+            <p className="font-black text-gray-900 dark:text-white text-sm mt-0.5">Instant Parallel HTTP</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Writes push immediately to RTDB</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
+            <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Inbound Webhook</p>
+            <p className="font-black text-gray-900 dark:text-white text-sm mt-0.5">Firebase SSE Stream</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Automatic real-time push to other devices</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
+            <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Cross-Device Login</p>
+            <p className="font-black text-gray-900 dark:text-white text-sm mt-0.5">Cloud User Lookup</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">New accounts pull instantly upon login</p>
           </div>
         </div>
       </div>

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Transaction } from '@/lib/db/idb';
+import { Transaction, STORES } from '@/lib/db/idb';
 import { transactionService } from '@/lib/services/transaction-service';
 import { metadataService } from '@/lib/services/metadata-service';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 export function useTransactions(branchId?: string) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -29,6 +30,12 @@ export function useTransactions(branchId?: string) {
 
   useEffect(() => {
     fetchTransactions();
+
+    const unsubscribe = realtimeSync.subscribe([STORES.TRANSACTIONS], () => {
+      fetchTransactions();
+    });
+
+    return () => unsubscribe();
   }, [fetchTransactions]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'updatedAt' | 'isDeleted'>) => {

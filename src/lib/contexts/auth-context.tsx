@@ -48,6 +48,10 @@ async function hashPasswordLegacy(password: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+import { pullStore, pullSync } from '@/lib/db/sync-queue';
+import { STORES } from '@/lib/db/idb';
+import { realtimeSync } from '@/lib/db/realtime-sync';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Omit<User, 'passwordHash'> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
+      // Pull latest users and store info in background from Firebase RTDB
+      if (typeof window !== 'undefined' && window.navigator.onLine) {
+        pullStore(STORES.USERS).catch(() => {});
+        pullStore(STORES.STORE_INFO).catch(() => {});
+      }
+
       const savedUserId = localStorage.getItem('pos-user-id');
       if (savedUserId) {
         try {
@@ -91,9 +101,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(`Too many failed login attempts. Account temporarily locked for security. Try again in ${limitCheck.lockoutSeconds} seconds.`);
     }
 
-    const users = await userService.getAll();
-    const foundUser = users.find(u => u.email.toLowerCase() === email);
+    let users = await userService.getAll();
+    let foundUser = users.find(u => u.email.toLowerCase() === email);
     
+    // If not found locally in IndexedDB, immediately pull fresh users from Firebase RTDB (cross-device instant sync!)
+    if (!foundUser && typeof window !== 'undefined' && window.navigator.onLine) {
+      try {
+        await pullStore(STORES.USERS);
+        users = await userService.getAll();
+        foundUser = users.find(u => u.email.toLowerCase() === email);
+      } catch (err) {
+        console.warn('[AuthContext] Cloud user lookup failed:', err);
+      }
+    }
+
     if (!foundUser) {
       const failed = authRateLimiter.recordFailure();
       setRateLimitStatus(failed);
@@ -136,6 +157,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userWithoutPassword);
     localStorage.setItem('pos-user-id', foundUser.id);
     await auditService.log('USER_LOGIN', `User ${email} logged in successfully`, email);
+
+    // Trigger instant background sync & start realtime webhook stream for new session
+    pullSync().catch(() => {});
+    realtimeSync.start();
+
     router.push('/');
   };
 
