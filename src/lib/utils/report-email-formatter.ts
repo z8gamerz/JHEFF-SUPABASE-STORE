@@ -72,7 +72,7 @@ export function generateReportEmailData(input: ReportGenerationInput): ReportGen
   const totalProfit = (totalSales - totalCost) - totalExpenses;
   const transactionCount = periodTransactions.length;
   const vatCollected = periodTransactions.reduce((acc, t) => acc + (t.vatAmount || 0), 0);
-  const totalUtang = customers.reduce((acc, c) => acc + (c.totalUtang || 0), 0);
+  const totalUtang = customers.reduce((acc, c) => acc + (Number(c.totalUtang) || 0), 0);
 
   const attachments: EmailAttachment[] = [];
   const storeName = store?.name || 'Sari-Sari Store';
@@ -191,7 +191,7 @@ export function generateReportEmailData(input: ReportGenerationInput): ReportGen
         .reduce((sum, ce) => sum + Math.abs(ce.amount), 0);
 
       const calculatedBalance = Math.max(0, totalCustCredits - totalCustPayments);
-      const kabuuangTotal = calculatedBalance > 0 ? calculatedBalance : (cust?.totalUtang || Math.abs(e.amount));
+      const kabuuangTotal = calculatedBalance > 0 ? calculatedBalance : (Number(cust?.totalUtang) || Math.abs(e.amount));
 
       return {
         name: cust?.name || 'Unknown Customer',

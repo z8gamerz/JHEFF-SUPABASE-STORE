@@ -12,6 +12,9 @@ export function useCustomers(branchId?: string) {
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
+      // Auto-reconcile all balances on load to fix any drift
+      await customerService.recalculateAllCustomerBalances();
+
       let data: Customer[];
       if (branchId) {
         data = await customerService.getByBranch(branchId);
@@ -37,14 +40,14 @@ export function useCustomers(branchId?: string) {
   }, [fetchCustomers]);
 
   const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalUtang' | 'branchId' | 'isDeleted'>): Promise<Customer> => {
-    if (!branchId) throw new Error('Branch ID is required to add a customer');
+    const effectiveBranchId = branchId || 'main_branch';
     const id = crypto.randomUUID();
     const now = Date.now();
     const newCustomer: Customer = {
       ...customer,
       id,
       totalUtang: 0,
-      branchId,
+      branchId: effectiveBranchId,
       createdAt: now,
       updatedAt: now,
     };
@@ -65,38 +68,47 @@ export function useCustomers(branchId?: string) {
 
   const recordCredit = async (
     customerId: string, 
-    amount: number, 
+    amount: number | string, 
     description: string, 
     type: 'credit' | 'payment',
     targetCreditId?: string,
     customTimestamp?: number
   ) => {
-    if (!branchId) throw new Error('Branch ID is required to record credit');
-    const customer = customers.find(c => c.id === customerId);
-    if (!customer) return;
+    // 1. Sanitize and parse amount (strips commas, currency symbols, spaces)
+    let parsedAmount = 0;
+    if (typeof amount === 'number') {
+      parsedAmount = isNaN(amount) ? 0 : Math.abs(amount);
+    } else if (typeof amount === 'string') {
+      const cleaned = amount.replace(/[^0-9.]/g, '');
+      parsedAmount = parseFloat(cleaned) || 0;
+    }
 
+    if (parsedAmount <= 0) {
+      throw new Error('Please enter a valid amount greater than 0.');
+    }
+
+    const customer = customers.find(c => c.id === customerId) || (await customerService.getById(customerId));
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    const effectiveBranchId = branchId || customer.branchId || 'main_branch';
     const now = Date.now();
     const entryTimestamp = customTimestamp && !isNaN(customTimestamp) ? customTimestamp : now;
+
     const entry: Omit<CreditEntry, 'updatedAt' | 'isDeleted'> = {
       id: crypto.randomUUID(),
       customerId,
-      branchId,
-      amount: type === 'credit' ? amount : -amount,
+      branchId: effectiveBranchId,
+      amount: type === 'credit' ? parsedAmount : -parsedAmount,
       type,
-      description,
+      description: description.trim() || (type === 'credit' ? 'Store Credit' : 'Payment Received'),
       timestamp: entryTimestamp,
       ...(targetCreditId ? { targetCreditId } : {}),
     };
 
+    // recordCredit atomically stores the entry and recalculates customer's totalUtang from the ledger
     await customerService.recordCredit(entry);
-    
-    const updatedCustomer = {
-      ...customer,
-      totalUtang: Math.max(0, customer.totalUtang + entry.amount),
-      updatedAt: now,
-    };
-    
-    await customerService.update(updatedCustomer);
     await fetchCustomers();
   };
 

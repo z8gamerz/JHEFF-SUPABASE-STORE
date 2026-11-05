@@ -72,6 +72,10 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
     return computeCreditCrossMatch(history);
   }, [history]);
 
+  const liveBalance = useMemo(() => {
+    return Math.max(0, crossMatchResult.summary.totalOutstanding);
+  }, [crossMatchResult]);
+
   const toggleExpand = (id: string) => {
     setExpandedCreditIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -167,11 +171,11 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest mb-0.5">Current Balance</p>
-              <p className={`text-2xl font-black ${customer.totalUtang > 0 ? 'text-red-600 dark:text-rose-400' : 'text-green-600 dark:text-emerald-400'}`}>
-                ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              <p className={`text-2xl font-black ${liveBalance > 0.001 ? 'text-red-600 dark:text-rose-400' : 'text-green-600 dark:text-emerald-400'}`}>
+                ₱{liveBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
               </p>
               <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 font-semibold">
-                {customer.totalUtang > 0 ? 'Outstanding Receivable' : 'Zero Balance / Fully Settled'}
+                {liveBalance > 0.001 ? 'Outstanding Receivable' : 'Zero Balance / Fully Settled'}
               </p>
             </div>
 
@@ -643,7 +647,7 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
                     </div>
                     <div className="text-right">
                       <span className="text-xl font-black text-red-600">
-                        ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        ₱{liveBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -790,8 +794,8 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
           <div className="flex items-center gap-4">
             <div className="text-right">
               <span className="text-gray-400 font-bold uppercase tracking-widest text-[10px] block">Current Balance</span>
-              <span className={`text-2xl font-black ${customer.totalUtang > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+              <span className={`text-2xl font-black ${liveBalance > 0.001 ? 'text-red-600' : 'text-green-600'}`}>
+                ₱{liveBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
               </span>
             </div>
             <button
@@ -919,7 +923,7 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
                   <div className="text-right">
                     <span className="text-xs font-bold uppercase text-gray-500 block">Current Total Balance:</span>
                     <span className="text-2xl font-black text-red-600">
-                      ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                      ₱{liveBalance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

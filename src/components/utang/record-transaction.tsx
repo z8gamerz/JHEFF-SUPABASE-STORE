@@ -70,14 +70,15 @@ export function RecordTransaction({ customer, type, onSave, onClose }: RecordTra
     }
   }, [type, customer.id]);
 
-  const numAmount = parseFloat(amount) || 0;
+  const numAmount = parseFloat(amount.replace(/[^0-9.]/g, '')) || 0;
   const paymentPreview = type === 'payment' 
     ? previewPaymentImpact(unpaidCredits, numAmount, selectedTargetCreditId || undefined)
     : null;
 
   const handleSelectFullBalance = () => {
     setSelectedTargetCreditId(null);
-    setAmount(customer.totalUtang.toString());
+    const balance = Math.max(0, Number(customer.totalUtang) || 0);
+    setAmount(balance > 0 ? balance.toFixed(2) : '0.00');
     setDescription('Full Balance Settlement');
   };
 
@@ -98,7 +99,8 @@ export function RecordTransaction({ customer, type, onSave, onClose }: RecordTra
     e.preventDefault();
     setError(null);
 
-    if (!amount || parseFloat(amount) <= 0) {
+    const cleanAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
+    if (!cleanAmount || isNaN(cleanAmount) || cleanAmount <= 0) {
       setError('Please enter a valid amount greater than 0.');
       return;
     }
@@ -116,16 +118,16 @@ export function RecordTransaction({ customer, type, onSave, onClose }: RecordTra
     try {
       await onSave(
         customer.id, 
-        parseFloat(amount), 
+        cleanAmount, 
         description.trim(), 
         type, 
         selectedTargetCreditId || undefined,
         customTimestamp
       );
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Record failed:', err);
-      setError('Failed to save transaction. Please try again.');
+      setError(err?.message || 'Failed to save transaction. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -226,19 +228,50 @@ export function RecordTransaction({ customer, type, onSave, onClose }: RecordTra
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                <Coins className="w-3.5 h-3.5 text-emerald-600" /> Amount (₱)
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <Coins className="w-3.5 h-3.5 text-emerald-600" /> Amount (₱)
+                </label>
+                {amount && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount('')}
+                    className="text-[11px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <input
-                type="number"
-                step="0.01"
-                min="0.01"
+                type="text"
+                inputMode="decimal"
                 required
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Allow digits, dot, comma, and space
+                  if (/^[0-9.,\s]*$/.test(val)) {
+                    setAmount(val);
+                  }
+                }}
                 placeholder="0.00"
                 className="w-full px-4 py-4 text-2xl font-black rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-green-600 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-800 text-gray-950 dark:text-white"
               />
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {[50, 100, 200, 500, 1000].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      const current = parseFloat(amount.replace(/[^0-9.]/g, '')) || 0;
+                      setAmount((current + preset).toFixed(2));
+                    }}
+                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-black transition-colors cursor-pointer"
+                  >
+                    +₱{preset}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>

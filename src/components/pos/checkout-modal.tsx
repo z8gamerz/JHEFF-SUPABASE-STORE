@@ -734,8 +734,8 @@ export function CheckoutModal({
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] font-black uppercase text-gray-400 block">Current Balance</span>
-                            <span className={`text-sm font-black ${c.totalUtang > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                              ₱{c.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                            <span className={`text-sm font-black ${(Number(c.totalUtang) || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              ₱{(Number(c.totalUtang) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                         </div>
@@ -751,7 +751,7 @@ export function CheckoutModal({
                         New Balance After This Credit:
                       </span>
                       <p className="text-xl font-black text-purple-900 dark:text-purple-200">
-                        ₱{(selectedCustomer.totalUtang + total).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        ₱{((Number(selectedCustomer.totalUtang) || 0) + total).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
@@ -966,7 +966,7 @@ export function CheckoutModal({
                           >
                             {customers.map((c) => (
                               <option key={c.id} value={c.id}>
-                                {c.name} (Current Utang: ₱{c.totalUtang.toFixed(2)})
+                                {c.name} (Current Utang: ₱{(Number(c.totalUtang) || 0).toFixed(2)})
                               </option>
                             ))}
                           </select>

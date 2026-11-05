@@ -23,15 +23,97 @@ class CustomerService extends BaseService<Customer> {
     return all.filter(e => (!branchId || e.branchId === branchId) && !e.isDeleted);
   }
 
-  async recordCredit(entry: Omit<CreditEntry, 'updatedAt' | 'isDeleted'>): Promise<void> {
+  async recalculateCustomerBalance(customerId: string): Promise<number> {
+    const customer = await this.getById(customerId);
+    if (!customer) return 0;
+
+    const history = await this.getCreditHistory(customerId);
+    let total = 0;
+    for (const entry of history) {
+      if (entry.isDeleted) continue;
+      const amt = Math.abs(Number(entry.amount) || 0);
+      if (entry.type === 'credit') {
+        total += amt;
+      } else if (entry.type === 'payment') {
+        total -= amt;
+      }
+    }
+    const finalBalance = Math.max(0, Math.round(total * 100) / 100);
+    const currentUtang = Number(customer.totalUtang);
+
+    if (isNaN(currentUtang) || Math.abs(currentUtang - finalBalance) > 0.001) {
+      const updatedCustomer: Customer = {
+        ...customer,
+        totalUtang: finalBalance,
+        updatedAt: Date.now(),
+      };
+      await this.update(updatedCustomer);
+    }
+    return finalBalance;
+  }
+
+  async recalculateAllCustomerBalances(): Promise<void> {
+    try {
+      const customers = await this.getAll();
+      const allCredits = await dbUtil.getItems<CreditEntry>(STORES.CREDIT_LOG);
+
+      const customerMap = new Map<string, CreditEntry[]>();
+      for (const entry of allCredits) {
+        if (entry.isDeleted) continue;
+        const list = customerMap.get(entry.customerId) || [];
+        list.push(entry);
+        customerMap.set(entry.customerId, list);
+      }
+
+      for (const customer of customers) {
+        if (customer.isDeleted) continue;
+        const entries = customerMap.get(customer.id) || [];
+        let total = 0;
+        for (const entry of entries) {
+          const amt = Math.abs(Number(entry.amount) || 0);
+          if (entry.type === 'credit') {
+            total += amt;
+          } else if (entry.type === 'payment') {
+            total -= amt;
+          }
+        }
+        const finalBalance = Math.max(0, Math.round(total * 100) / 100);
+        const currentUtang = Number(customer.totalUtang);
+
+        if (isNaN(currentUtang) || Math.abs(currentUtang - finalBalance) > 0.001) {
+          await this.update({
+            ...customer,
+            totalUtang: finalBalance,
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to auto-reconcile customer balances:', err);
+    }
+  }
+
+  async recordCredit(entry: Omit<CreditEntry, 'updatedAt' | 'isDeleted'>): Promise<number> {
     const now = Date.now();
-    const newEntry = {
+    const rawAmt = typeof entry.amount === 'number' 
+      ? entry.amount 
+      : parseFloat(String(entry.amount).replace(/[^0-9.]/g, ''));
+    const safeAmt = isNaN(rawAmt) ? 0 : Math.abs(rawAmt);
+
+    // Enforce proper sign: positive for credit, negative for payment
+    const normalizedAmount = entry.type === 'credit' ? safeAmt : -safeAmt;
+
+    const newEntry: CreditEntry = {
       ...entry,
+      amount: normalizedAmount,
       updatedAt: now,
       isDeleted: false,
-    } as CreditEntry;
+    };
     
     await syncDb.add(STORES.CREDIT_LOG, newEntry);
+
+    // Automatically recalculate and synchronize customer's totalUtang with the exact ledger entries
+    return await this.recalculateCustomerBalance(entry.customerId);
   }
 
   async deleteCreditEntry(entryId: string): Promise<void> {
@@ -47,31 +129,24 @@ class CustomerService extends BaseService<Customer> {
     await syncDb.update(STORES.CREDIT_LOG, updatedEntry);
 
     // Recalculate customer totalUtang
-    const customer = await this.getById(target.customerId);
-    if (customer) {
-      const activeEntries = (await this.getCreditHistory(customer.id)).filter(e => e.id !== entryId && !e.isDeleted);
-      const newTotal = activeEntries.reduce((sum, e) => sum + e.amount, 0);
-      const updatedCustomer: Customer = {
-        ...customer,
-        totalUtang: Math.max(0, newTotal),
-        updatedAt: Date.now(),
-      };
-      await this.update(updatedCustomer);
-    }
+    await this.recalculateCustomerBalance(target.customerId);
   }
 
   async clearCustomerBalance(customerId: string, note: string = 'Balance Cleared / Deleted'): Promise<void> {
     const customer = await this.getById(customerId);
-    if (!customer || customer.totalUtang <= 0) return;
+    if (!customer) return;
 
-    const currentBalance = customer.totalUtang;
+    // Recalculate true current balance first
+    const currentBalance = await this.recalculateCustomerBalance(customerId);
+    if (currentBalance <= 0.0001) return;
+
     const now = Date.now();
 
     // Record an offsetting settlement entry in CREDIT_LOG so history reflects the balance clearance
     const clearanceEntry: CreditEntry = {
       id: crypto.randomUUID(),
       customerId,
-      branchId: customer.branchId,
+      branchId: customer.branchId || 'main_branch',
       amount: -currentBalance,
       type: 'payment',
       description: note,
@@ -81,14 +156,10 @@ class CustomerService extends BaseService<Customer> {
     };
     await syncDb.add(STORES.CREDIT_LOG, clearanceEntry);
 
-    // Zero out customer balance
-    const updatedCustomer: Customer = {
-      ...customer,
-      totalUtang: 0,
-      updatedAt: now,
-    };
-    await this.update(updatedCustomer);
+    // Reconcile to zero
+    await this.recalculateCustomerBalance(customerId);
   }
 }
 
 export const customerService = new CustomerService();
+

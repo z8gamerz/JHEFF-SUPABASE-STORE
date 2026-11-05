@@ -207,7 +207,7 @@ export default function CreditReportPage() {
         crossMatch,
         totalCreditsTaken: crossMatch.summary.totalCredits,
         totalPaymentsMade: crossMatch.summary.totalPayments,
-        currentBalance: cust.totalUtang,
+        currentBalance: crossMatch.summary.totalOutstanding,
         unpaidCount: openCredits.length,
         oldestUnpaidTimestamp: oldestUnpaid,
         lastActivityTimestamp: lastActivity,
@@ -221,7 +221,7 @@ export default function CreditReportPage() {
 
   // Key KPI metrics
   const kpis = useMemo(() => {
-    const totalOutstanding = customers.reduce((sum, c) => sum + (c.totalUtang || 0), 0);
+    const totalOutstanding = customerSummaries.reduce((sum, c) => sum + (c.currentBalance || 0), 0);
 
     // In-period credit and payments
     const periodCredits = periodEntries
@@ -232,7 +232,7 @@ export default function CreditReportPage() {
       .filter(e => e.type === 'payment')
       .reduce((sum, e) => sum + Math.abs(e.amount), 0);
 
-    const debtorsCount = customers.filter(c => c.totalUtang > 0.001).length;
+    const debtorsCount = customerSummaries.filter(c => c.currentBalance > 0.001).length;
     const settledCount = customers.length - debtorsCount;
 
     const collectionRate = (periodPayments + totalOutstanding) > 0
@@ -455,26 +455,31 @@ export default function CreditReportPage() {
     const cust = customers.find(c => c.id === customerId);
     if (!cust) return;
 
+    let cleanAmt = 0;
+    if (typeof amount === 'number') {
+      cleanAmt = isNaN(amount) ? 0 : Math.abs(amount);
+    } else if (typeof amount === 'string') {
+      cleanAmt = parseFloat((amount as string).replace(/[^0-9.]/g, '')) || 0;
+    }
+
+    if (cleanAmt <= 0) {
+      throw new Error('Please enter a valid amount greater than 0.');
+    }
+
     const now = Date.now();
     const entryTimestamp = customTimestamp && !isNaN(customTimestamp) ? customTimestamp : now;
     const entry: Omit<CreditEntry, 'updatedAt' | 'isDeleted'> = {
       id: crypto.randomUUID(),
       customerId,
-      branchId: cust.branchId,
-      amount: type === 'credit' ? amount : -amount,
+      branchId: cust.branchId || 'main_branch',
+      amount: type === 'credit' ? cleanAmt : -cleanAmt,
       type,
-      description,
+      description: description.trim() || (type === 'credit' ? 'Store Credit' : 'Payment Received'),
       timestamp: entryTimestamp,
       ...(targetCreditId ? { targetCreditId } : {}),
     };
 
     await customerService.recordCredit(entry);
-    const updatedCustomer = {
-      ...cust,
-      totalUtang: Math.max(0, cust.totalUtang + entry.amount),
-      updatedAt: now,
-    };
-    await customerService.update(updatedCustomer);
     await fetchData();
   };
 

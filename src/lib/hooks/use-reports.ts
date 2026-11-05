@@ -163,7 +163,7 @@ export function useReports(branchId?: string) {
 
     customers.forEach(c => {
       const stats = branchStatsMap.get(c.branchId) || { name: 'Unknown Branch', sales: 0, transactions: 0, utang: 0 };
-      stats.utang += c.totalUtang;
+      stats.utang += (Number(c.totalUtang) || 0);
       branchStatsMap.set(c.branchId, stats);
     });
 
@@ -195,7 +195,7 @@ export function useReports(branchId?: string) {
     const totalProfit = totalProfitBeforeExpenses - totalExpenses;
 
     const totalTransactions = filteredTransactions.length;
-    const totalUtang = customers.reduce((sum, c) => sum + c.totalUtang, 0);
+    const totalUtang = customers.reduce((sum, c) => sum + (Number(c.totalUtang) || 0), 0);
 
     // E-Wallet Summaries
     const filteredEwallet = ewalletTransactions.filter(ew => ew.createdAt >= cutoff);

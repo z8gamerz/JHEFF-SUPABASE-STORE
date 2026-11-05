@@ -7,7 +7,7 @@ import { Header } from '@/components/layout/header';
 import { CustomerForm } from '@/components/utang/customer-form';
 import { CreditHistory } from '@/components/utang/credit-history';
 import { RecordTransaction } from '@/components/utang/record-transaction';
-import { Plus, Search, User, Phone, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, UserPlus, ShieldAlert, Loader2, FileText, CheckCircle2, Wallet, AlertCircle } from 'lucide-react';
+import { Plus, Search, User, Phone, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, UserPlus, ShieldAlert, Loader2, FileText, CheckCircle2, Wallet, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,7 +18,8 @@ import { useBranches } from '@/lib/hooks/use-branches';
 
 export default function UtangPage() {
   const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, recordCredit, getCreditHistory, deleteCreditEntry, clearCustomerBalance } = useCustomers(currentBranchId || undefined);
+  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, recordCredit, getCreditHistory, deleteCreditEntry, clearCustomerBalance, refresh } = useCustomers(currentBranchId || undefined);
+  const [isRefreshingBalances, setIsRefreshingBalances] = useState(false);
   const { isCashier, loading: authLoading } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,8 +39,9 @@ export default function UtangPage() {
     let debtors = 0;
     let paid = 0;
     for (const c of customers) {
-      if (c.totalUtang > 0.001) {
-        sum += c.totalUtang;
+      const bal = Math.max(0, Number(c.totalUtang) || 0);
+      if (bal > 0.001) {
+        sum += bal;
         debtors++;
       } else {
         paid++;
@@ -53,9 +55,9 @@ export default function UtangPage() {
     let result = customers;
 
     if (balanceFilter === 'outstanding') {
-      result = result.filter(c => c.totalUtang > 0.001);
+      result = result.filter(c => (Number(c.totalUtang) || 0) > 0.001);
     } else if (balanceFilter === 'fully_paid') {
-      result = result.filter(c => c.totalUtang <= 0.001);
+      result = result.filter(c => (Number(c.totalUtang) || 0) <= 0.001);
     }
 
     if (!q) return result;
@@ -164,6 +166,23 @@ export default function UtangPage() {
             </div>
   
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsRefreshingBalances(true);
+                  try {
+                    await refresh();
+                  } finally {
+                    setIsRefreshingBalances(false);
+                  }
+                }}
+                disabled={isRefreshingBalances}
+                className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-bold px-4 py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer text-xs"
+                title="Recalculate & Reconcile All Ledger Balances"
+              >
+                <RefreshCw className={`w-4 h-4 text-emerald-600 dark:text-emerald-400 ${isRefreshingBalances ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Recalculate Balances</span>
+              </button>
               <Link
                 href="/reports/credits"
                 className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-bold px-5 py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95"
@@ -366,10 +385,10 @@ export default function UtangPage() {
                     </div>
                     <div className="flex items-baseline justify-between">
                       <div className="flex items-center gap-2">
-                        <p className={`text-2xl font-black ${customer.totalUtang > 0.001 ? 'text-red-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                          ₱{customer.totalUtang.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        <p className={`text-2xl font-black ${(Number(customer.totalUtang) || 0) > 0.001 ? 'text-red-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          ₱{(Number(customer.totalUtang) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                         </p>
-                        {customer.totalUtang > 0.001 && (
+                        {(Number(customer.totalUtang) || 0) > 0.001 && (
                           <button
                             type="button"
                             onClick={() => setClearBalanceTarget(customer)}
