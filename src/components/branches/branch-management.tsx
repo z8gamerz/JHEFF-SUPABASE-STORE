@@ -31,7 +31,7 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-white dark:bg-gray-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col max-h-[80vh] transition-colors"
       >
-        <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-850">
+        <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/80 dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <div className="bg-orange-600 p-2 rounded-xl text-white shadow-md shadow-orange-500/20">
               <MapPin className="w-5 h-5" />
@@ -133,7 +133,7 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
           )}
         </div>
 
-        <div className="p-8 bg-gray-50 dark:bg-gray-850 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+        <div className="p-8 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <p className="text-xs font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest">
             Total Branches: {branches.length}
           </p>

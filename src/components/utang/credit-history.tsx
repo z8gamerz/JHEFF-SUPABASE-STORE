@@ -163,7 +163,7 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
         </div>
 
         {/* KPI Metrics Summary Bar */}
-        <div className="p-6 bg-gray-50/60 dark:bg-gray-850 border-b border-gray-100 dark:border-gray-800">
+        <div className="p-6 bg-gray-50/80 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <p className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest mb-0.5">Current Balance</p>

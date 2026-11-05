@@ -326,7 +326,7 @@ export function Receipt({
         className="bg-white dark:bg-gray-900 rounded-[2rem] w-full max-w-sm overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors"
       >
         {/* Actions Header */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-850">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
           <div className="flex gap-2">
             <button 
               type="button"
@@ -363,11 +363,11 @@ export function Receipt({
         </div>
 
         {/* Receipt Content (Preview) */}
-        <div className="p-8 bg-gray-100 dark:bg-gray-950 flex justify-center overflow-y-auto max-h-[70vh]">
+        <div className="p-3 sm:p-6 md:p-8 bg-gray-100 dark:bg-gray-950 flex justify-center overflow-x-auto overflow-y-auto max-h-[70vh]">
           <div 
             id="printable-receipt"
             ref={receiptRef}
-            className="bg-white w-[80mm] p-6 shadow-lg font-mono text-[12px] leading-tight text-black"
+            className="bg-white w-[80mm] min-w-[280px] p-5 sm:p-6 shadow-lg font-mono text-[12px] leading-tight text-black shrink-0"
             style={{ fontFamily: "'Courier New', Courier, monospace" }}
           >
             <ReceiptHeader 

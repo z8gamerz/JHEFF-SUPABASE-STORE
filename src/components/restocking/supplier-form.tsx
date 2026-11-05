@@ -34,7 +34,7 @@ export function SupplierForm({ supplier, onSave, onDelete, onClose }: SupplierFo
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-white dark:bg-gray-900 rounded-3xl sm:rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border-2 border-gray-200 dark:border-gray-800 transition-colors"
       >
-        <div className="p-6 sm:p-8 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-850">
+        <div className="p-6 sm:p-8 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
           <div>
             <h3 className="text-xl sm:text-2xl font-black text-gray-950 dark:text-white tracking-tight">
               {supplier ? 'Edit Supplier' : 'Add New Supplier'}

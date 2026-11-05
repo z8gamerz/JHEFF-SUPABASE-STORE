@@ -146,9 +146,9 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
             <div className={`p-1.5 rounded-lg ${user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300'}`}>
               <UserCircle className="w-4 h-4" />
             </div>
-            <div className="text-left hidden sm:block">
-              <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mb-0.5">{user?.role}</p>
-              <p className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-tight truncate max-w-[100px]">{user?.email}</p>
+            <div className="text-left hidden sm:block min-w-0">
+              <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-tight">{user?.role}</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-tight truncate max-w-[120px] mt-0.5">{user?.email}</p>
             </div>
             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
           </button>

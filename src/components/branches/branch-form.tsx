@@ -62,7 +62,7 @@ export function BranchForm({ branch, onSave, onClose }: BranchFormProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-white dark:bg-gray-900 w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 transition-colors"
       >
-        <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-850">
+        <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/80 dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <div className="bg-orange-600 p-2 rounded-xl text-white shadow-md shadow-orange-500/20">
               <MapPin className="w-5 h-5" />

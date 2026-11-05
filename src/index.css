@@ -1,13 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --color-gray-750: #2d3748;
+  --color-gray-850: #1a2234;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   html {
     min-height: 100%;
     transition: background-color 0.2s ease, color 0.2s ease;
-    background-color: #f9fafb;
-    color: #111827;
+    background-color: #f8fafc;
+    color: #090d16;
   }
   
   html.dark {
@@ -18,9 +23,10 @@
 
   body {
     min-height: 100vh;
-    background-color: #f9fafb;
-    color: #111827;
+    background-color: #f8fafc;
+    color: #090d16;
     transition: background-color 0.2s ease, color 0.2s ease;
+    -webkit-font-smoothing: antialiased;
   }
 
   html.dark body,
@@ -29,40 +35,49 @@
     color: #f8fafc !important;
   }
 
-  /* High-contrast font visibility guarantees across entire app and window dialogs */
-  .dark input::placeholder,
+  /* Universal Anti-Overlap Typography Rules */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.25;
+    overflow-wrap: break-word;
+  }
+
+  p, label {
+    line-height: 1.4;
+    overflow-wrap: break-word;
+  }
+
+  /* Form Controls Contrast */
+  input, select, textarea {
+    color: #090d16;
+  }
+
+  .dark input, 
+  .dark select, 
+  .dark textarea {
+    color: #ffffff;
+  }
+
+  input::placeholder, 
+  textarea::placeholder {
+    color: #64748b;
+  }
+
+  .dark input::placeholder, 
   .dark textarea::placeholder {
     color: #94a3b8;
   }
 
-  /* Boost low-contrast text in dark mode */
-  .dark .text-gray-400 {
-    color: #cbd5e1;
-  }
-  .dark .text-gray-500 {
-    color: #e2e8f0;
-  }
-  .dark .text-gray-600 {
-    color: #f1f5f9;
-  }
-
-  /* Boost low-contrast text in light mode */
-  html:not(.dark) .text-gray-400 {
-    color: #475569;
-  }
-  html:not(.dark) .text-gray-500 {
-    color: #334155;
-  }
-
-  /* High contrast form inputs and selectors */
-  input, select, textarea {
+  select option {
+    background-color: #ffffff;
     color: #090d16;
   }
-  .dark input, .dark select, .dark textarea {
-    color: #ffffff;
+
+  .dark select option {
+    background-color: #111827;
+    color: #f8fafc;
   }
 
-  /* Window dialogs and modals font contrast protection */
+  /* High-Contrast Visibility for Window Dialogs and Modals */
   dialog,
   [role="dialog"],
   [aria-modal="true"] {
@@ -75,16 +90,80 @@
     color: #f8fafc;
   }
 
+  /* Ensure labels inside dialogs have high contrast against their background */
   dialog label,
   [role="dialog"] label,
   [aria-modal="true"] label {
-    color: #090d16;
+    color: #0f172a;
+    font-weight: 700;
   }
 
   .dark dialog label,
   .dark [role="dialog"] label,
   .dark [aria-modal="true"] label {
     color: #f1f5f9;
+  }
+
+  /* Ensure dialog headings are distinct */
+  dialog h1, dialog h2, dialog h3, dialog h4,
+  [role="dialog"] h1, [role="dialog"] h2, [role="dialog"] h3, [role="dialog"] h4,
+  [aria-modal="true"] h1, [aria-modal="true"] h2, [aria-modal="true"] h3, [aria-modal="true"] h4 {
+    color: #090d16;
+    font-weight: 900;
+  }
+
+  .dark dialog h1, .dark dialog h2, .dark dialog h3, .dark dialog h4,
+  .dark [role="dialog"] h1, .dark [role="dialog"] h2, .dark [role="dialog"] h3, .dark [role="dialog"] h4,
+  .dark [aria-modal="true"] h1, .dark [aria-modal="true"] h2, .dark [aria-modal="true"] h3, .dark [aria-modal="true"] h4 {
+    color: #ffffff;
+  }
+
+  /* Subtitle text contrast inside dialogs */
+  dialog p,
+  [role="dialog"] p,
+  [aria-modal="true"] p {
+    color: #334155;
+  }
+
+  .dark dialog p,
+  .dark [role="dialog"] p,
+  .dark [aria-modal="true"] p {
+    color: #e2e8f0;
+  }
+
+  /* Boost low-contrast text utilities */
+  html:not(.dark) .text-gray-400 {
+    color: #475569 !important;
+  }
+  html:not(.dark) .text-gray-500 {
+    color: #334155 !important;
+  }
+
+  .dark .text-gray-400 {
+    color: #cbd5e1;
+  }
+  .dark .text-gray-500 {
+    color: #e2e8f0;
+  }
+  .dark .text-gray-600 {
+    color: #f1f5f9;
+  }
+
+  /* Explicit light card protection: if an element has an explicit light background in dark mode, keep text dark */
+  .dark .bg-white:not([class*="dark:bg-"]),
+  .dark .bg-gray-50:not([class*="dark:bg-"]),
+  .dark .bg-gray-100:not([class*="dark:bg-"]) {
+    color: #0f172a !important;
+  }
+
+  .dark .bg-white:not([class*="dark:bg-"]) p,
+  .dark .bg-white:not([class*="dark:bg-"]) span:not([class*="text-white"]),
+  .dark .bg-white:not([class*="dark:bg-"]) h1,
+  .dark .bg-white:not([class*="dark:bg-"]) h2,
+  .dark .bg-white:not([class*="dark:bg-"]) h3,
+  .dark .bg-white:not([class*="dark:bg-"]) h4,
+  .dark .bg-white:not([class*="dark:bg-"]) label {
+    color: #0f172a !important;
   }
 
   @media print {

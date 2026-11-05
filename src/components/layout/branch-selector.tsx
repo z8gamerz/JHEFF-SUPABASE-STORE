@@ -39,12 +39,12 @@ export function BranchSelector({ onManageBranches }: BranchSelectorProps) {
         <div className="bg-orange-100 dark:bg-orange-950/60 p-1.5 rounded-lg text-orange-600 dark:text-orange-400">
           <MapPin className="w-4 h-4" />
         </div>
-        <div className="text-left">
+        <div className="text-left min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-[10px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-widest leading-none">Branch</p>
-            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-md">Assigned</span>
+            <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest leading-tight">Branch</p>
+            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md">Assigned</span>
           </div>
-          <p className="text-sm font-black text-gray-900 dark:text-white leading-none mt-1">{currentBranch?.name || branches[0].name}</p>
+          <p className="text-sm font-black text-gray-900 dark:text-white leading-tight mt-0.5 truncate max-w-[140px] sm:max-w-[180px]">{currentBranch?.name || branches[0].name}</p>
         </div>
       </div>
     );
@@ -59,14 +59,14 @@ export function BranchSelector({ onManageBranches }: BranchSelectorProps) {
         <div className="bg-orange-100 dark:bg-orange-950/60 p-1.5 rounded-lg text-orange-600 dark:text-orange-400 group-hover:bg-orange-600 group-hover:text-white transition-colors">
           <MapPin className="w-4 h-4" />
         </div>
-        <div className="text-left">
+        <div className="text-left min-w-0">
           <div className="flex items-center gap-1">
-            <p className="text-[10px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-widest leading-none">
+            <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest leading-tight">
               {isAdmin ? 'Branch (Admin)' : 'Assigned Branch'}
             </p>
             {isAdmin && <ShieldCheck className="w-3 h-3 text-orange-600 dark:text-orange-400" />}
           </div>
-          <p className="text-sm font-black text-gray-900 dark:text-white leading-none mt-1">
+          <p className="text-sm font-black text-gray-900 dark:text-white leading-tight mt-0.5 truncate max-w-[140px] sm:max-w-[180px]">
             {currentBranch?.name || 'Select Branch'}
           </p>
         </div>
@@ -86,7 +86,7 @@ export function BranchSelector({ onManageBranches }: BranchSelectorProps) {
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-gray-900 rounded-[2rem] shadow-2xl border border-gray-100 dark:border-gray-800 z-50 overflow-hidden"
             >
-              <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-850 flex items-center justify-between">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                     {isAdmin ? 'Admin Overseer' : 'Your Assigned Branches'}

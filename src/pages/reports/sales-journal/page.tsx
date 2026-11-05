@@ -166,7 +166,7 @@ export default function SalesJournalPage() {
                   ) : (
                     <>
                       {filteredTransactions.map((t) => (
-                        <tr key={t.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-850 transition-colors group">
+                        <tr key={t.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800 transition-colors group">
                           <td className="px-6 py-4 font-bold text-gray-700 dark:text-gray-300 border-r border-gray-100 dark:border-gray-800">
                             {format(t.timestamp, 'MMM dd, yyyy')}
                           </td>

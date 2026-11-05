@@ -249,7 +249,7 @@ export function EmailReportModal({
               <Mail className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tight leading-none">Email Weekly Business Report</h3>
+              <h3 className="text-xl font-black tracking-tight leading-tight">Email Weekly Business Report</h3>
               <p className="text-xs text-orange-100 font-semibold mt-1">
                 Mon – Sun Cycle &bull; Clean HTML Digest &amp; CSV Attachments
               </p>

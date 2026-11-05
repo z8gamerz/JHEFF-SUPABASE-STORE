@@ -117,7 +117,7 @@ export default function UsersManagementPage() {
         <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <div>
-              <h2 className="text-3xl font-black text-gray-950 dark:text-white tracking-tighter uppercase leading-none">User Management</h2>
+              <h2 className="text-3xl font-black text-gray-950 dark:text-white tracking-tighter uppercase leading-tight">User Management</h2>
               <p className="text-gray-600 dark:text-gray-300 font-bold mt-2 text-sm">Manage staff accounts and permissions</p>
             </div>
             
@@ -132,7 +132,7 @@ export default function UsersManagementPage() {
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden transition-colors">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-850">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800">
               <div className="relative max-w-md">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                 <input
@@ -148,7 +148,7 @@ export default function UsersManagementPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50/70 dark:bg-gray-850 border-b border-gray-100 dark:border-gray-800">
+                  <tr className="bg-gray-50/80 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
                     <th className="px-8 py-4 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">User</th>
                     <th className="px-8 py-4 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Role</th>
                     <th className="px-8 py-4 text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Branches</th>

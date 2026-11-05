@@ -119,7 +119,7 @@ export default function RestockingPage() {
                   <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
                 </Link>
                 <div>
-                  <h1 className="text-4xl md:text-5xl font-black text-gray-950 dark:text-white tracking-tighter leading-none mb-2">Restocking</h1>
+                  <h1 className="text-4xl md:text-5xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight mb-2">Restocking</h1>
                   <p className="text-base sm:text-lg text-gray-800 dark:text-gray-200 font-bold">Manage suppliers and record inventory stock-in</p>
                 </div>
               </div>
@@ -192,36 +192,36 @@ export default function RestockingPage() {
                                   <Calendar className="w-5 h-5 stroke-[2.5]" />
                                 </div>
                                 <div>
-                                  <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Date & Time</p>
+                                  <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-tight mb-1">Date & Time</p>
                                   <p className="font-black text-gray-950 dark:text-white text-sm sm:text-base">{new Date(tx.timestamp).toLocaleString()}</p>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Total Cost</p>
-                                <p className="text-2xl sm:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">₱{tx.totalCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                              <div className="text-right shrink-0">
+                                <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-tight mb-1">Total Cost</p>
+                                <p className="text-2xl sm:text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight leading-tight">₱{tx.totalCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
                               </div>
                             </div>
   
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 p-5 sm:p-6 bg-gray-50 dark:bg-gray-800/80 rounded-2xl sm:rounded-[2rem] border-2 border-gray-200 dark:border-gray-700">
-                              <div className="flex items-center gap-3">
-                                <Truck className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5]" />
-                                <div>
-                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Supplier</p>
-                                  <p className="font-black text-gray-950 dark:text-white text-sm">{suppliers.find(s => s.id === tx.supplierId)?.name || 'Unknown'}</p>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Truck className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5] shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-tight mb-0.5">Supplier</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm truncate">{suppliers.find(s => s.id === tx.supplierId)?.name || 'Unknown'}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <Hash className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5]" />
-                                <div>
-                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Ref #</p>
-                                  <p className="font-black text-gray-950 dark:text-white text-sm">{tx.referenceNumber || 'N/A'}</p>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Hash className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5] shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-tight mb-0.5">Ref #</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm truncate">{tx.referenceNumber || 'N/A'}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <FileText className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5]" />
-                                <div>
-                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">Items</p>
-                                  <p className="font-black text-gray-950 dark:text-white text-sm">{tx.items.length} Products</p>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <FileText className="w-5 h-5 text-gray-700 dark:text-gray-300 stroke-[2.5] shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-tight mb-0.5">Items</p>
+                                  <p className="font-black text-gray-950 dark:text-white text-sm truncate">{tx.items.length} Products</p>
                                 </div>
                               </div>
                             </div>

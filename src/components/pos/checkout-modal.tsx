@@ -431,7 +431,7 @@ export function CheckoutModal({
               <span className="text-[11px] font-black uppercase tracking-widest text-orange-100">
                 Total Amount Due
               </span>
-              <p className="text-4xl sm:text-5xl font-black tracking-tight leading-none mt-1">
+              <p className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight mt-1 break-words">
                 ₱{total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
               </p>
             </div>
@@ -458,7 +458,7 @@ export function CheckoutModal({
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'cash'
                     ? 'border-orange-600 bg-orange-50/70 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 shadow-sm ring-2 ring-orange-500/20'
-                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-850 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
                 }`}
               >
                 <div className={`p-2.5 rounded-xl ${selectedMethod === 'cash' ? 'bg-orange-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
@@ -474,7 +474,7 @@ export function CheckoutModal({
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'gcash'
                     ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
-                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-850 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
                 }`}
               >
                 <div className={`p-2.5 rounded-xl ${selectedMethod === 'gcash' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
@@ -490,7 +490,7 @@ export function CheckoutModal({
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'bank_transfer'
                     ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-sm ring-2 ring-indigo-500/20'
-                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-850 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
                 }`}
               >
                 <div className={`p-2.5 rounded-xl ${selectedMethod === 'bank_transfer' ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
@@ -506,7 +506,7 @@ export function CheckoutModal({
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'credit'
                     ? 'border-purple-600 bg-purple-50/70 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 shadow-sm ring-2 ring-purple-500/20'
-                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-850 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
                 }`}
               >
                 <div className={`p-2.5 rounded-xl ${selectedMethod === 'credit' ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
@@ -522,7 +522,7 @@ export function CheckoutModal({
                 className={`col-span-2 sm:col-span-1 p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'split'
                     ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shadow-sm ring-2 ring-emerald-500/20'
-                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-850 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700'
                 }`}
               >
                 <div className={`p-2.5 rounded-xl ${selectedMethod === 'split' ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>

@@ -63,7 +63,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
         className="bg-white dark:bg-gray-900 rounded-3xl sm:rounded-[2.5rem] shadow-2xl w-full max-w-5xl h-[92vh] max-h-[880px] flex flex-col overflow-hidden border-2 border-gray-200 dark:border-gray-800 transition-colors"
       >
         {/* Header */}
-        <div className="p-5 sm:p-7 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-850 shrink-0">
+        <div className="p-5 sm:p-7 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800 shrink-0">
           <div className="flex items-center gap-3.5 sm:gap-4">
             <div className="bg-indigo-600 p-2.5 sm:p-3 rounded-2xl text-white shadow-xl shadow-indigo-500/20 shrink-0">
               <Truck className="w-6 h-6 stroke-[2.5]" />
@@ -72,7 +72,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
               <h3 className="text-xl sm:text-2xl font-black text-gray-950 dark:text-white tracking-tight leading-tight">
                 Record Stock
               </h3>
-              <p className="text-xs sm:text-sm text-gray-800 dark:text-gray-200 font-bold">
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-bold">
                 Add and restock items in your inventory
               </p>
             </div>
@@ -80,7 +80,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
           <button 
             type="button"
             onClick={onClose} 
-            className="p-2 sm:p-2.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:text-gray-950 dark:hover:text-white transition-colors cursor-pointer"
+            className="p-2 sm:p-2.5 bg-gray-200/60 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-2xl border-2 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 hover:text-gray-950 dark:hover:text-white transition-colors cursor-pointer"
             title="Close dialog"
           >
             <X className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
@@ -89,7 +89,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
 
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
           {/* Left Side: Product Selector */}
-          <div className="w-full md:w-80 lg:w-96 border-b-2 md:border-b-0 md:border-r-2 border-gray-200 dark:border-gray-800 flex flex-col bg-gray-50/70 dark:bg-gray-950/60 shrink-0">
+          <div className="w-full md:w-80 lg:w-96 border-b-2 md:border-b-0 md:border-r-2 border-gray-200 dark:border-gray-800 flex flex-col bg-gray-100/70 dark:bg-gray-950 shrink-0">
             <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider">
@@ -121,7 +121,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                   <button
                     key={product.id}
                     onClick={() => addItem(product)}
-                    className="w-full flex items-center justify-between p-3.5 bg-white dark:bg-gray-850 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group cursor-pointer gap-2"
+                    className="w-full flex items-center justify-between p-3.5 bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-md transition-all text-left group cursor-pointer gap-2"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="font-black text-xs sm:text-sm text-gray-950 dark:text-white leading-snug break-words">
@@ -129,13 +129,13 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                       </p>
                       <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border mt-1 ${
                         product.stock > 10
-                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
-                          : 'bg-rose-100 dark:bg-rose-950/80 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
+                          : 'bg-rose-100 dark:bg-rose-950 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
                       }`}>
                         Current Stock: {product.stock}
                       </span>
                     </div>
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors border border-indigo-200 dark:border-indigo-800">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors border border-indigo-200 dark:border-indigo-800">
                       <Plus className="w-4 h-4 stroke-[3]" />
                     </div>
                   </button>
@@ -198,7 +198,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                           initial={{ opacity: 0, x: -15 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 15 }}
-                          className="bg-white dark:bg-gray-850 rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 shadow-xs"
+                          className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 shadow-xs"
                         >
                           <td className="px-3.5 py-3 rounded-l-2xl">
                             <p className="font-black text-xs sm:text-sm text-gray-950 dark:text-white break-words line-clamp-2">
@@ -211,7 +211,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                               min="1"
                               value={item.quantity}
                               onChange={(e) => updateItem(item.productId, 'quantity', parseInt(e.target.value) || 0)}
-                              className="w-full bg-gray-50 dark:bg-gray-750 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-xl px-2.5 py-1.5 text-center font-black text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none"
+                              className="w-full bg-gray-50 dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-xl px-2.5 py-1.5 text-center font-black text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none"
                             />
                           </td>
                           <td className="px-3 py-3">
@@ -221,7 +221,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                               step="0.01"
                               value={item.costPrice}
                               onChange={(e) => updateItem(item.productId, 'costPrice', parseFloat(e.target.value) || 0)}
-                              className="w-full bg-gray-50 dark:bg-gray-750 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-xl px-2.5 py-1.5 font-black text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none"
+                              className="w-full bg-gray-50 dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-xl px-2.5 py-1.5 font-black text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none"
                             />
                           </td>
                           <td className="px-3 py-3 text-right">
@@ -258,25 +258,25 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
               </div>
 
               {/* Bottom Actions and Auto-Fit Total */}
-              <div className="mt-auto pt-4 border-t-2 border-gray-200 dark:border-gray-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shrink-0">
-                <div className="w-full md:w-1/2">
+              <div className="mt-auto pt-4 border-t-2 border-gray-200 dark:border-gray-800 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 shrink-0">
+                <div className="flex-1 min-w-0">
                   <label className="block text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5 ml-1">
                     Notes
                   </label>
-                  <textarea
+                  <input
+                    type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    rows={1}
-                    className="w-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-all resize-none outline-none placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
+                    className="w-full bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-2xl px-4 py-3 text-xs sm:text-sm font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 transition-all outline-none placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                     placeholder="Optional notes or supplier reference..."
                   />
                 </div>
-                <div className="flex items-center justify-between md:justify-end gap-5">
-                  <div className="text-left md:text-right">
-                    <p className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wider leading-none mb-1">
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between xl:justify-end gap-5 shrink-0">
+                  <div className="text-left xl:text-right shrink-0">
+                    <p className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1 leading-tight">
                       Total Cost
                     </p>
-                    <p className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight truncate">
+                    <p className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight leading-tight">
                       ₱{totalCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                     </p>
                   </div>

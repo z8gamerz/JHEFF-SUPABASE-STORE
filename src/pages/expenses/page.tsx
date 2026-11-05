@@ -230,7 +230,7 @@ export default function ExpensesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-850">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800">
                         <th className="py-6 px-8 text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">Date & Time</th>
                         <th className="py-6 px-8 text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">Category</th>
                         <th className="py-6 px-8 text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">Description</th>

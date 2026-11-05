@@ -79,7 +79,7 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 transition-colors my-auto"
       >
-        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-850">
+        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500 p-2.5 rounded-2xl text-white shadow-md shadow-orange-500/20">
               <Package className="w-5 h-5 stroke-[2.5]" />
