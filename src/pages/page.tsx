@@ -36,6 +36,14 @@ interface ActionMenuItem extends BaseMenuItem {
 type MenuItem = LinkMenuItem | ActionMenuItem;
 
 export default function Home() {
+  return (
+    <AuthGuard>
+      <HomeDashboard />
+    </AuthGuard>
+  );
+}
+
+function HomeDashboard() {
   const { store, loading } = useStore();
   const { isCashier } = useAuth();
   const [showSyncError, setShowSyncError] = useState(false);
@@ -55,8 +63,11 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 transition-colors">
-        <Loader2 className="w-12 h-12 animate-spin text-orange-600" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 transition-colors">
+        <Loader2 className="w-12 h-12 animate-spin text-orange-600 mb-4" />
+        <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest text-xs">
+          Loading Store...
+        </p>
       </div>
     );
   }
@@ -163,9 +174,8 @@ export default function Home() {
   const filteredItems = menuItems.filter(item => !item.adminOnly || !isCashier);
 
   return (
-    <AuthGuard>
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors">
-        <Header />
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors">
+      <Header />
         
         <div className="p-6 md:p-12 max-w-7xl mx-auto">
           {/* PWA Install Banner (automatically hides if already installed) */}
@@ -345,6 +355,5 @@ export default function Home() {
           </div>
         </div>
       </main>
-    </AuthGuard>
   );
 }

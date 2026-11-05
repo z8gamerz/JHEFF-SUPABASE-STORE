@@ -6,7 +6,7 @@ import { storeService } from '@/lib/services/store-service';
 import { productService } from '@/lib/services/product-service';
 import { branchService } from '@/lib/services/branch-service';
 import { auditService } from '@/lib/services/audit-service';
-import { pullSync, processQueue } from '@/lib/db/sync-queue';
+import { pullSync, pullStore, processQueue } from '@/lib/db/sync-queue';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { STORES } from '@/lib/db/idb';
 import { realtimeSync } from '@/lib/db/realtime-sync';
@@ -17,6 +17,7 @@ const CURRENT_BRANCH_KEY = 'sarisari_current_branch_id';
 interface StoreContextType {
   store: StoreInfo | null;
   loading: boolean;
+  refreshStore: () => Promise<void>;
   updateStore: (name: string, address?: string, tin?: string, taxType?: 'VAT' | 'NON-VAT', vatRate?: number) => Promise<void>;
   getNextORNumber: () => Promise<string>;
   products: Product[];
@@ -45,7 +46,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const loadStore = async (isBackgroundSync = false) => {
     try {
-      const currentStore = await storeService.getStore();
+      let currentStore = await storeService.getStore();
+
+      // If store is not found in local IndexedDB on a new device, pull store_info & branches immediately from Firebase RTDB
+      if (!currentStore && typeof window !== 'undefined' && window.navigator.onLine) {
+        try {
+          await pullStore(STORES.STORE_INFO);
+          await pullStore(STORES.BRANCHES);
+          currentStore = await storeService.getStore();
+        } catch (cloudErr) {
+          console.warn('[StoreProvider] Cloud store pull on startup failed:', cloudErr);
+        }
+      }
+
       if (currentStore) {
         setStore(currentStore);
       }
@@ -54,6 +67,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const businessId = currentStore?.id || 'main_config';
       let allBranchesInDb = (await branchService.getAll()).filter(b => !b.isDeleted);
       
+      // If no branches in DB locally but online, pull from cloud
+      if (allBranchesInDb.length === 0 && typeof window !== 'undefined' && window.navigator.onLine) {
+        try {
+          await pullStore(STORES.BRANCHES);
+          allBranchesInDb = (await branchService.getAll()).filter(b => !b.isDeleted);
+        } catch (cloudErr) {
+          console.warn('[StoreProvider] Cloud branches pull failed:', cloudErr);
+        }
+      }
+
       // Auto-clean any legacy branch named "JHEFF CONSTRUCTION BRANCH"
       const legacyBranches = allBranchesInDb.filter(b => b.name?.trim().toUpperCase() === 'JHEFF CONSTRUCTION BRANCH');
       if (legacyBranches.length > 0) {
@@ -78,9 +101,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (activeBranches.length === 0 && allBranchesInDb.length > 0) {
         activeBranches = allBranchesInDb;
       }
-      
-      // Never auto-create branches without explicit administrator permission.
-      // Branches must be explicitly created by an administrator.
 
       const sortedBranches = activeBranches.sort((a, b) => b.createdAt - a.createdAt);
       setAllBranches(sortedBranches);
@@ -95,6 +115,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
   };
+
+  // Re-run store loading whenever user authenticates or switches
+  useEffect(() => {
+    if (user) {
+      loadStore(true);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     // 1. Instant local load
@@ -315,6 +342,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     <StoreContext.Provider value={{ 
       store, 
       loading, 
+      refreshStore: () => loadStore(true),
       updateStore, 
       getNextORNumber, 
       products: filteredProducts, 

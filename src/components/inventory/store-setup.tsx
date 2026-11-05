@@ -5,14 +5,37 @@ import { useStore } from '@/lib/hooks/use-store';
 import { useBranches } from '@/lib/hooks/use-branches';
 import { branchService } from '@/lib/services/branch-service';
 import { motion } from 'motion/react';
-import { Store, ArrowRight, Loader2 } from 'lucide-react';
+import { Store, ArrowRight, Loader2, CloudDownload, LogIn } from 'lucide-react';
+import { pullStore } from '@/lib/db/sync-queue';
+import { STORES } from '@/lib/db/idb';
+import Link from 'next/link';
 
 export function StoreSetup() {
-  const { updateStore } = useStore();
+  const { updateStore, refreshStore } = useStore();
   const { addBranch, isAdmin } = useBranches();
   const [name, setName] = useState('');
   const [taxType, setTaxType] = useState<'VAT' | 'NON-VAT'>('NON-VAT');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  const handleSyncCloudStore = async () => {
+    setIsSyncingCloud(true);
+    setSyncStatus('Chini-check ang existing store sa cloud database...');
+    try {
+      await Promise.all([
+        pullStore(STORES.STORE_INFO),
+        pullStore(STORES.BRANCHES),
+        pullStore(STORES.PRODUCTS),
+      ]);
+      await refreshStore();
+      setSyncStatus('Store data synchronized successfully!');
+    } catch (err: any) {
+      setSyncStatus('Walang nakitang existing cloud store o offline ang device.');
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +138,44 @@ export function StoreSetup() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-8 font-black uppercase tracking-widest">
+        {/* Existing Store / Cross-Device Login Options */}
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800 space-y-3">
+          <div className="text-center">
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-3">
+              Mayroon nang existing store sa ibang device?
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={handleSyncCloudStore}
+                disabled={isSyncingCloud}
+                className="w-full px-3 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSyncingCloud ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CloudDownload className="w-3.5 h-3.5 text-orange-600" />
+                )}
+                Sync Cloud Store
+              </button>
+
+              <Link
+                href="/login"
+                className="w-full px-3 py-2.5 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all text-center"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Mag-Log In Dito
+              </Link>
+            </div>
+            {syncStatus && (
+              <p className="text-[11px] font-bold text-orange-600 dark:text-orange-400 mt-2.5">
+                {syncStatus}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6 font-black uppercase tracking-widest">
           Offline-First • Local Storage Enabled
         </p>
       </motion.div>

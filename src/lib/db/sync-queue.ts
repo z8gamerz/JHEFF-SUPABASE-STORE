@@ -193,7 +193,14 @@ export async function pullStore(store: StoreName): Promise<any[]> {
     if (!response.ok) {
       return dbUtil.getItems<any>(store);
     }
-    const data = await response.json();
+    const text = await response.text();
+    if (!text || text === 'null') return [];
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return dbUtil.getItems<any>(store);
+    }
     if (!data) return [];
 
     const cloudItems: any[] = Array.isArray(data) 

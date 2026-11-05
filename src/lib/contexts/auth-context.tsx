@@ -74,7 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const savedUserId = localStorage.getItem('pos-user-id');
       if (savedUserId) {
         try {
-          const userData = await userService.getById(savedUserId);
+          let userData = await userService.getById(savedUserId);
+          if (!userData && typeof window !== 'undefined' && window.navigator.onLine) {
+            await pullStore(STORES.USERS);
+            userData = await userService.getById(savedUserId);
+          }
           if (userData) {
             const { passwordHash, ...userWithoutPassword } = userData;
             setUser(userWithoutPassword);
@@ -158,7 +162,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pos-user-id', foundUser.id);
     await auditService.log('USER_LOGIN', `User ${email} logged in successfully`, email);
 
-    // Trigger instant background sync & start realtime webhook stream for new session
+    // Cross-device sync: Await store_info, branches, products, customers & expenses from cloud
+    if (typeof window !== 'undefined' && window.navigator.onLine) {
+      try {
+        await Promise.all([
+          pullStore(STORES.STORE_INFO),
+          pullStore(STORES.BRANCHES),
+          pullStore(STORES.PRODUCTS),
+          pullStore(STORES.CUSTOMERS),
+          pullStore(STORES.EXPENSES),
+          pullStore(STORES.CREDIT_LOG),
+        ]);
+      } catch (syncErr) {
+        console.warn('[AuthContext] Quick store pull on login failed:', syncErr);
+      }
+    }
+
+    // Trigger background sync for remaining collections & start realtime webhook stream
     pullSync().catch(() => {});
     realtimeSync.start();
 

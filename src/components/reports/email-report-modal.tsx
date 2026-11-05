@@ -634,9 +634,24 @@ export function EmailReportModal({
 
               {/* Error Alert */}
               {errorMessage && (
-                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{errorMessage}</span>
+                <div className="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs space-y-3">
+                  <div className="flex items-start gap-2.5 font-bold">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+                    <span className="leading-relaxed">{errorMessage}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pl-6 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleDownloadCSVs}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      I-download ang CSV Reports
+                    </button>
+                    <span className="text-[11px] text-rose-800 dark:text-rose-300 font-semibold">
+                      Maaari mong i-download agad ang buong report habang inaayos ang Gmail App Password.
+                    </span>
+                  </div>
                 </div>
               )}
             </>
