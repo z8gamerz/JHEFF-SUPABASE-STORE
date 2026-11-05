@@ -4,11 +4,103 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+function smtpApiPlugin() {
+  return {
+    name: 'smtp-api-plugin',
+    configureServer(server: any) {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
+        const url = req.url?.split('?')[0];
+        if (url === '/api/test-smtp' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const { senderEmail, appPassword } = JSON.parse(body || '{}');
+              if (!senderEmail || !appPassword) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Gmail address and App Password are required.' }));
+                return;
+              }
+              const nodemailer = await import('nodemailer');
+              const transporter = nodemailer.default.createTransport({
+                service: 'gmail',
+                auth: {
+                  user: senderEmail.trim(),
+                  pass: appPassword.replace(/\s+/g, ''),
+                },
+              });
+              await transporter.verify();
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, message: 'SMTP credentials verified successfully!' }));
+            } catch (err: any) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ 
+                success: false, 
+                error: err?.message || 'Failed to authenticate with Gmail SMTP. Please check your App Password.' 
+              }));
+            }
+          });
+          return;
+        }
+
+        if (url === '/api/send-report-email' && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const { senderEmail, appPassword, recipientEmail, subject, htmlBody, attachments } = JSON.parse(body || '{}');
+              if (!senderEmail || !appPassword || !recipientEmail) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Sender email, App Password, and Recipient email are required.' }));
+                return;
+              }
+              const nodemailer = await import('nodemailer');
+              const transporter = nodemailer.default.createTransport({
+                service: 'gmail',
+                auth: {
+                  user: senderEmail.trim(),
+                  pass: appPassword.replace(/\s+/g, ''),
+                },
+              });
+
+              const mailOptions: any = {
+                from: `"${senderEmail}" <${senderEmail.trim()}>`,
+                to: recipientEmail.trim(),
+                subject: subject || 'Weekly Business Report',
+                html: htmlBody,
+                attachments: (attachments || []).map((att: any) => ({
+                  filename: att.filename,
+                  content: att.content,
+                  contentType: att.contentType || 'text/csv',
+                })),
+              };
+
+              const info = await transporter.sendMail(mailOptions);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, messageId: info.messageId }));
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ 
+                success: false, 
+                error: err?.message || 'Failed to send email. Check your Gmail App Password and network connection.' 
+              }));
+            }
+          });
+          return;
+        }
+
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
     plugins: [
       react(), 
       tailwindcss(),
+      smtpApiPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
@@ -92,7 +184,7 @@ export default defineConfig(() => {
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modifyâ€”file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

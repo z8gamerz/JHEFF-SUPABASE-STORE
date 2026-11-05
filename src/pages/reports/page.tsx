@@ -19,7 +19,8 @@ import {
   Filter,
   ShieldAlert,
   FileText,
-  Users
+  Users,
+  Mail
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,6 +29,7 @@ import { useStore } from '@/lib/hooks/use-store';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { EmailReportModal } from '@/components/reports/email-report-modal';
 
 export default function ReportsPage() {
   const { branches, currentBranchId, loading: loadingBranches } = useBranches();
@@ -35,8 +37,9 @@ export default function ReportsPage() {
   const { store } = useStore();
   const router = useRouter();
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
-  const { loading, transactions, getFilteredStats } = useReports(selectedBranchId === 'all' ? undefined : selectedBranchId);
+  const { loading, transactions, customers, expenses, getFilteredStats } = useReports(selectedBranchId === 'all' ? undefined : selectedBranchId);
   const [timeRange, setTimeRange] = useState(7); // Default 7 days
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && isCashier) {
@@ -209,6 +212,16 @@ export default function ReportsPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Email Report Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsEmailModalOpen(true)}
+                  className="flex items-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white rounded-[2rem] font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-orange-500/25 active:scale-95 cursor-pointer border-none"
+                >
+                  <Mail className="w-4 h-4" />
+                  Email Weekly Report
+                </button>
               </div>
             </div>
   
@@ -265,15 +278,24 @@ export default function ReportsPage() {
                 
                 <button 
                   onClick={handleExport}
-                  className="w-full bg-white text-gray-900 font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 hover:bg-gray-100 transition-all active:scale-95 relative z-10"
+                  className="w-full bg-white text-gray-900 font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 hover:bg-gray-100 transition-all active:scale-95 relative z-10 cursor-pointer"
                 >
                   <Download className="w-6 h-6" />
                   GENERATE CSV REPORT
                 </button>
+
+                <button 
+                  type="button"
+                  onClick={() => setIsEmailModalOpen(true)}
+                  className="w-full mt-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 hover:from-amber-600 hover:to-orange-700 transition-all active:scale-95 relative z-10 shadow-lg shadow-orange-950/40 cursor-pointer border-none uppercase tracking-wider"
+                >
+                  <Mail className="w-6 h-6" />
+                  EMAIL REPORT (MON – SUN)
+                </button>
   
                 <Link 
                   href="/reports/sales-journal"
-                  className="w-full mt-4 bg-orange-600 text-white font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 hover:bg-orange-700 transition-all active:scale-95 relative z-10 shadow-lg shadow-orange-900/50"
+                  className="w-full mt-3 bg-orange-600 text-white font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 hover:bg-orange-700 transition-all active:scale-95 relative z-10 shadow-lg shadow-orange-900/50"
                 >
                   <FileText className="w-6 h-6" />
                   VIEW SALES JOURNAL
@@ -290,6 +312,17 @@ export default function ReportsPage() {
             </div>
           </div>
         </div>
+
+        {/* Weekly Email Report Modal */}
+        <EmailReportModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          selectedBranchId={selectedBranchId}
+          branches={branches}
+          transactions={transactions}
+          expenses={expenses}
+          customers={customers}
+        />
       </div>
     </AuthGuard>
   );

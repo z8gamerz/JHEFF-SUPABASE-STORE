@@ -269,6 +269,9 @@ export function useReports(branchId?: string) {
   return {
     loading,
     transactions,
+    customers,
+    expenses,
+    products,
     refresh,
     getFilteredStats,
     getDailySummary,

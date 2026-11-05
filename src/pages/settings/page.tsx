@@ -26,12 +26,14 @@ import {
   Check, 
   Sparkles,
   ShieldCheck,
-  Database
+  Database,
+  Mail
 } from 'lucide-react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { UserManagement } from '@/components/admin/user-management';
 import { SystemHealthDashboard } from '@/components/admin/system-health';
+import { EmailSettings } from '@/components/settings/email-settings';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { clearDatabaseAll } from '@/lib/db/sync-queue';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -40,7 +42,7 @@ export default function SettingsPage() {
   const { store, updateStore, loading } = useStore();
   const { isAdmin } = useAuth();
   const { theme, isDark, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'business' | 'users' | 'system'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'users' | 'email' | 'system'>('business');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [tin, setTin] = useState('');
@@ -143,6 +145,18 @@ export default function SettingsPage() {
               >
                 <Users className="w-4 h-4 text-blue-600" />
                 Users &amp; Access
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('email')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'email'
+                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <Mail className="w-4 h-4 text-purple-600" />
+                Email &amp; Reports
               </button>
               <button
                 type="button"
@@ -424,7 +438,17 @@ export default function SettingsPage() {
             </motion.div>
           )}
 
-          {/* TAB 3: SYSTEM, SECURITY & SURVIVAL */}
+          {/* TAB 3: EMAIL & REPORT DISPATCH */}
+          {activeTab === 'email' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <EmailSettings />
+            </motion.div>
+          )}
+
+          {/* TAB 4: SYSTEM, SECURITY & SURVIVAL */}
           {activeTab === 'system' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
