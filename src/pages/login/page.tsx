@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { motion } from 'motion/react';
-import { Store, Mail, Lock, Loader2, ArrowRight, ShieldAlert, Clock, AlertTriangle, ExternalLink, Copy, Check } from 'lucide-react';
+import { Store, Mail, Lock, Loader2, ArrowRight, ShieldAlert, Clock, AlertTriangle, ExternalLink, Copy, Check, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -16,11 +16,38 @@ function LoginContent() {
   const [countdown, setCountdown] = useState<number>(0);
   const [showFirebaseRestricted, setShowFirebaseRestricted] = useState(false);
   const [copiedRules, setCopiedRules] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const { login, rateLimitStatus, refreshRateLimitStatus, resetRateLimit } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+
+  const handleTestFirebase = async () => {
+    setIsTestingConnection(true);
+    setTestResult(null);
+    try {
+      const BASE_URL = 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('pos_firebase_auth_token') || '') : '';
+      const authQuery = token ? `?auth=${encodeURIComponent(token.trim())}` : '';
+      const res = await fetch(`${BASE_URL}/users.json${authQuery}`, { headers: { 'Cache-Control': 'no-cache' } });
+      if (res.ok) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('firebase_sync_error');
+        }
+        setShowFirebaseRestricted(false);
+        setError('');
+        setTestResult('Success! Bukas na ang Firebase. Pwede ka nang mag-login!');
+      } else {
+        setTestResult(`Naka-lock pa rin ang Firebase (HTTP ${res.status}). I-check ang Tab 1 at pindutin ang Publish.`);
+      }
+    } catch {
+      setTestResult('Hindi makakonekta sa Firebase. I-check ang internet connection.');
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
 
   // Check if Firebase returned 401 Unauthorized
   useEffect(() => {
@@ -127,14 +154,32 @@ function LoginContent() {
                   </button>
                 </div>
 
-                <a
-                  href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-rose-700 dark:text-rose-400 underline font-black inline-flex items-center gap-1 hover:text-rose-900 text-[11px]"
-                >
-                  Buksan ang Firebase Rules Console <ExternalLink className="w-3 h-3" />
-                </a>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-rose-200 dark:border-rose-900/60">
+                  <a
+                    href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-rose-700 dark:text-rose-400 underline font-black inline-flex items-center gap-1 hover:text-rose-900 text-[11px]"
+                  >
+                    Buksan ang Firebase Rules Console <ExternalLink className="w-3 h-3" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleTestFirebase}
+                    disabled={isTestingConnection}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    {isTestingConnection ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Subukan Ulit
+                  </button>
+                </div>
+
+                {testResult && (
+                  <p className="text-[11px] font-black text-rose-900 dark:text-rose-200 pt-1">
+                    {testResult}
+                  </p>
+                )}
               </div>
             )}
 

@@ -89,6 +89,45 @@ function smtpApiPlugin() {
           return;
         }
 
+        if (url === '/api/update-firebase-rules') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const handlerModule = await import('./api/update-firebase-rules.js').catch(() => import('./api/update-firebase-rules.ts' as any));
+              const handler = handlerModule.default;
+              
+              // Mock Vercel response helper
+              const mockRes: any = {
+                status(code: number) {
+                  res.statusCode = code;
+                  return this;
+                },
+                setHeader(name: string, value: string) {
+                  res.setHeader(name, value);
+                  return this;
+                },
+                json(data: any) {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(data));
+                  return this;
+                },
+                end() {
+                  res.end();
+                  return this;
+                }
+              };
+
+              const parsedBody = body ? JSON.parse(body) : {};
+              await handler({ ...req, body: parsedBody }, mockRes);
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err?.message || 'Server error' }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     },

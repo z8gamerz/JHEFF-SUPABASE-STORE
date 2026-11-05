@@ -131,8 +131,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined' && window.navigator.onLine) {
       (async () => {
         try {
-          await pullSync();
-          await processQueue();
+          await pullSync().catch((e) => console.warn('[CloudSync] Initial pullSync deferred:', e));
+          await processQueue().catch((e) => console.warn('[CloudSync] Initial processQueue deferred:', e));
           await loadStore(true);
         } catch (syncError) {
           console.warn('[CloudSync] Background startup sync bypassed:', syncError);

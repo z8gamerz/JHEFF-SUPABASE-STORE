@@ -26,6 +26,7 @@ import {
   Check, 
   Sparkles,
   ShieldCheck,
+  ShieldAlert,
   Database,
   Mail
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import { Header } from '@/components/layout/header';
 import { UserManagement } from '@/components/admin/user-management';
 import { SystemHealthDashboard } from '@/components/admin/system-health';
 import { EmailSettings } from '@/components/settings/email-settings';
+import { DatabaseSecurity } from '@/components/admin/database-security';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { clearDatabaseAll } from '@/lib/db/sync-queue';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -42,7 +44,7 @@ export default function SettingsPage() {
   const { store, updateStore, loading } = useStore();
   const { isAdmin } = useAuth();
   const { theme, isDark, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'business' | 'users' | 'email' | 'system'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'users' | 'email' | 'security' | 'system'>('business');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [tin, setTin] = useState('');
@@ -160,6 +162,18 @@ export default function SettingsPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab('security')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'security'
+                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <ShieldAlert className="w-4 h-4 text-rose-600" />
+                Database Security
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('system')}
                 className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                   activeTab === 'system'
@@ -168,7 +182,7 @@ export default function SettingsPage() {
                 }`}
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Security &amp; Survival
+                Survival &amp; Reset
               </button>
             </div>
           </div>
@@ -448,7 +462,17 @@ export default function SettingsPage() {
             </motion.div>
           )}
 
-          {/* TAB 4: SYSTEM, SECURITY & SURVIVAL */}
+          {/* TAB: DATABASE SECURITY */}
+          {activeTab === 'security' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <DatabaseSecurity />
+            </motion.div>
+          )}
+
+          {/* TAB 4: SYSTEM & SURVIVAL */}
           {activeTab === 'system' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}

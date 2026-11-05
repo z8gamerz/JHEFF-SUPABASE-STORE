@@ -187,7 +187,9 @@ class RealtimeSyncManager {
     this.setStatus('connecting');
 
     try {
-      const url = `${this.getBaseUrl()}/.json`;
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('pos_firebase_auth_token') || '') : '';
+      const authQuery = token ? `?auth=${encodeURIComponent(token.trim())}` : '';
+      const url = `${this.getBaseUrl()}/.json${authQuery}`;
       const es = new EventSource(url);
       this.eventSource = es;
 

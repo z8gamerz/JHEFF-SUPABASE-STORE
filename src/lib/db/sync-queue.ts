@@ -18,6 +18,13 @@ function getRtdbUrl(): string {
     'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
 }
 
+export function getAuthQuery(): string {
+  if (typeof window === 'undefined') return '';
+  const token = localStorage.getItem('pos_firebase_auth_token') || 
+                (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || '';
+  return token ? `?auth=${encodeURIComponent(token.trim())}` : '';
+}
+
 /**
  * Direct parallel auto-push to Firebase Realtime Database.
  * Runs instantly without waiting for batch queues.
@@ -35,7 +42,7 @@ export async function pushDirect(
   const BASE_URL = getRtdbUrl();
 
   try {
-    const url = `${BASE_URL}/${store}/${key}.json`;
+    const url = `${BASE_URL}/${store}/${key}.json${getAuthQuery()}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
@@ -122,6 +129,7 @@ export async function processQueue(): Promise<void> {
   const BATCH_SIZE = 50;
   const batch = pendingActions.slice(0, BATCH_SIZE);
   const BASE_URL = getRtdbUrl();
+  const authQuery = getAuthQuery();
 
   try {
     for (const action of batch) {
@@ -129,51 +137,71 @@ export async function processQueue(): Promise<void> {
       await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
     }
 
+    let hasSuccess = false;
+
     for (const action of batch) {
       const { store, payload, type } = action;
       const key = payload.id || payload.key;
       if (!key) {
-        console.warn('[CloudSync] Missing key for action payload:', payload);
+        console.warn('[CloudSync] Missing key for action payload, removing from queue:', payload);
+        if (action.id) await markAsSynced(action.id);
         continue;
       }
 
-      const url = `${BASE_URL}/${store}/${key}.json`;
-      const response = await fetch(url, {
-        method: type === 'DELETE' ? 'DELETE' : 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: type === 'DELETE' ? undefined : JSON.stringify(payload)
-      });
+      // If an audit log has failed repeatedly due to Firebase permission rules, prune it from queue
+      if ((action.retryCount || 0) >= 3 && store === STORES.AUDIT_LOGS) {
+        console.warn(`[CloudSync] Pruning un-syncable audit log ${key} from local queue.`);
+        if (action.id) await markAsSynced(action.id);
+        continue;
+      }
 
-      if (!response.ok) {
-        throw new Error(`Sync failed for action on ${store}/${key}: ${response.statusText}`);
+      const url = `${BASE_URL}/${store}/${key}.json${authQuery}`;
+      try {
+        const response = await fetch(url, {
+          method: type === 'DELETE' ? 'DELETE' : 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: type === 'DELETE' ? undefined : JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          hasSuccess = true;
+          if (action.id) {
+            await markAsSynced(action.id);
+          }
+        } else {
+          if (response.status === 401 || response.status === 403) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('firebase_sync_error', 'Unauthorized');
+            }
+          }
+          action.status = 'failed';
+          action.retryCount = (action.retryCount || 0) + 1;
+          await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
+        }
+      } catch (reqError) {
+        action.status = 'failed';
+        action.retryCount = (action.retryCount || 0) + 1;
+        await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
       }
     }
     
-    for (const action of batch) {
-      if (action.id) {
-        await markAsSynced(action.id);
+    if (hasSuccess) {
+      const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
+      if (storeInfo.length > 0) {
+        const info = storeInfo[0];
+        info.lastSyncedAt = Date.now();
+        await dbUtil.updateItem(STORES.STORE_INFO, info);
       }
     }
 
-    const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
-    if (storeInfo.length > 0) {
-      const info = storeInfo[0];
-      info.lastSyncedAt = Date.now();
-      await dbUtil.updateItem(STORES.STORE_INFO, info);
-    }
-
-    if (pendingActions.length > BATCH_SIZE) {
+    const remainingPending = (await dbUtil.getItems<SyncAction>(STORES.SYNC_QUEUE)).filter(a => a.status === 'pending');
+    if (remainingPending.length > 0) {
       processQueue();
     }
   } catch (error) {
-    console.error('[CloudSync] Batch sync failed:', error);
-    for (const action of batch) {
-      action.status = 'failed';
-      action.retryCount += 1;
-      await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
-    }
+    console.warn('[CloudSync] Queue processing deferred:', error);
   }
 }
 
@@ -188,7 +216,7 @@ export async function pullStore(store: StoreName): Promise<any[]> {
   const BASE_URL = getRtdbUrl();
 
   try {
-    const url = `${BASE_URL}/${store}.json`;
+    const url = `${BASE_URL}/${store}.json${getAuthQuery()}`;
     const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
