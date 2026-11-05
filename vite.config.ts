@@ -10,6 +10,17 @@ function smtpApiPlugin() {
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url?.split('?')[0];
+        if (url === '/api/test-smtp' || url === '/api/send-report-email') {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          if (req.method === 'OPTIONS') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+            return;
+          }
+        }
+
         if (url === '/api/test-smtp' && req.method === 'POST') {
           let body = '';
           req.on('data', (chunk: any) => { body += chunk; });
@@ -28,6 +39,9 @@ function smtpApiPlugin() {
                   user: senderEmail.trim(),
                   pass: appPassword.replace(/\s+/g, ''),
                 },
+                connectionTimeout: 10000,
+                greetingTimeout: 8000,
+                socketTimeout: 12000,
               });
               await transporter.verify();
               res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -61,6 +75,9 @@ function smtpApiPlugin() {
                   user: senderEmail.trim(),
                   pass: appPassword.replace(/\s+/g, ''),
                 },
+                connectionTimeout: 10000,
+                greetingTimeout: 8000,
+                socketTimeout: 12000,
               });
 
               const mailOptions: any = {

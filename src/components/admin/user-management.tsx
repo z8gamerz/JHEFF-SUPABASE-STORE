@@ -6,6 +6,7 @@ import { useUsers } from '@/lib/hooks/use-users';
 import { User as UserIcon, Plus, Mail, Shield, Edit2, Trash2, Loader2, UserCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserForm } from '@/components/users/user-form';
+import { hashPassword } from '@/lib/security/auth-crypto';
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -15,7 +16,7 @@ export function UserManagement() {
   const handleSaveUser = async (formData: any) => {
     try {
       if (editingUser === 'new') {
-        const passwordHash = await hashPassword(formData.password);
+        const passwordHash = await hashPassword(formData.password, formData.email);
         await createUser({
           name: formData.name,
           email: formData.email,
@@ -33,7 +34,7 @@ export function UserManagement() {
         };
 
         if (formData.password) {
-          updateData.passwordHash = await hashPassword(formData.password);
+          updateData.passwordHash = await hashPassword(formData.password, formData.email || editingUser.email);
         }
 
         await updateUser(editingUser.id, updateData);
@@ -54,15 +55,6 @@ export function UserManagement() {
       await deleteUser(id);
     }
   };
-
-  // Simple hash function for simulation
-  async function hashPassword(password: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
 
   if (loading) {
     return (

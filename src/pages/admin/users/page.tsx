@@ -10,6 +10,7 @@ import { branchService } from '@/lib/services/branch-service';
 import { motion, AnimatePresence } from 'motion/react';
 import { User as UserIcon, Plus, Shield, UserCircle, Mail, MapPin, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
 import { UserForm } from '@/components/users/user-form';
+import { hashPassword } from '@/lib/security/auth-crypto';
 
 export default function UsersManagementPage() {
   const { user: currentUser } = useAuth();
@@ -37,7 +38,7 @@ export default function UsersManagementPage() {
   const handleSaveUser = async (formData: any) => {
     try {
       if (editingUser === 'new') {
-        const passwordHash = await hashPassword(formData.password);
+        const passwordHash = await hashPassword(formData.password, formData.email);
         await createUser({
           name: formData.name,
           email: formData.email,
@@ -55,7 +56,7 @@ export default function UsersManagementPage() {
         };
 
         if (formData.password) {
-          updateData.passwordHash = await hashPassword(formData.password);
+          updateData.passwordHash = await hashPassword(formData.password, formData.email || editingUser.email);
         }
 
         await updateUser(editingUser.id, updateData);
@@ -76,15 +77,6 @@ export default function UsersManagementPage() {
       await deleteUser(id);
     }
   };
-
-  // Simple hash function for simulation (duplicated from auth-context for now)
-  async function hashPassword(password: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
 
   const filteredUsers = (users || []).filter(u => 
     u?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||

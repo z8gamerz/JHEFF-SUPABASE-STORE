@@ -68,26 +68,28 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
         animate={{ opacity: 1, x: 0 }}
         className="flex items-center gap-4"
       >
-        <div className="bg-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-200 dark:shadow-none">
-          <Store className="text-white w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="font-black text-xl md:text-2xl tracking-tight text-gray-900 dark:text-white leading-tight">
-            {store?.name || 'Sari-Sari POS'}
-          </h1>
-          <div className="flex items-center gap-3 mt-0.5">
-            <div className="flex items-center gap-1 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-              <Clock className="w-3 h-3" />
-              {new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-            {ticketNumber && (
-              <div className="flex items-center gap-1 text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">
-                <span className="w-1 h-1 bg-orange-600 dark:bg-orange-400 rounded-full" />
-                Ticket: {ticketNumber}
-              </div>
-            )}
+        <Link href="/" className="flex items-center gap-4 hover:opacity-90 transition-opacity group cursor-pointer" title="Back to Dashboard">
+          <div className="bg-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-200 dark:shadow-none group-hover:scale-105 transition-transform">
+            <Store className="text-white w-6 h-6" />
           </div>
-        </div>
+          <div>
+            <h1 className="font-black text-xl md:text-2xl tracking-tight text-gray-900 dark:text-white leading-tight">
+              {store?.name || 'Sari-Sari POS'}
+            </h1>
+            <div className="flex items-center gap-3 mt-0.5">
+              <div className="flex items-center gap-1 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                <Clock className="w-3 h-3" />
+                {new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              {ticketNumber && (
+                <div className="flex items-center gap-1 text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">
+                  <span className="w-1 h-1 bg-orange-600 dark:bg-orange-400 rounded-full" />
+                  Ticket: {ticketNumber}
+                </div>
+              )}
+            </div>
+          </div>
+        </Link>
       </motion.div>
       
       <div className="flex items-center gap-2 sm:gap-3">

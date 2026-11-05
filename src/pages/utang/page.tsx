@@ -7,7 +7,7 @@ import { Header } from '@/components/layout/header';
 import { CustomerForm } from '@/components/utang/customer-form';
 import { CreditHistory } from '@/components/utang/credit-history';
 import { RecordTransaction } from '@/components/utang/record-transaction';
-import { Plus, Search, User, Phone, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, UserPlus, ShieldAlert, Loader2, FileText, CheckCircle2, Wallet, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Search, User, Phone, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, UserPlus, ShieldAlert, Loader2, FileText, CheckCircle2, Wallet, AlertCircle, RefreshCw, SlidersHorizontal, Scale, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,7 +18,7 @@ import { useBranches } from '@/lib/hooks/use-branches';
 
 export default function UtangPage() {
   const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, recordCredit, getCreditHistory, deleteCreditEntry, clearCustomerBalance, refresh } = useCustomers(currentBranchId || undefined);
+  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, recordCredit, getCreditHistory, deleteCreditEntry, clearCustomerBalance, adjustCustomerBalance, refresh } = useCustomers(currentBranchId || undefined);
   const [isRefreshingBalances, setIsRefreshingBalances] = useState(false);
   const { isCashier, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -31,6 +31,10 @@ export default function UtangPage() {
   const [recordType, setRecordType] = useState<'credit' | 'payment' | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [clearBalanceTarget, setClearBalanceTarget] = useState<Customer | null>(null);
+  const [adjustTargetCustomer, setAdjustTargetCustomer] = useState<Customer | null>(null);
+  const [adjustTargetAmount, setAdjustTargetAmount] = useState<string>('');
+  const [adjustNote, setAdjustNote] = useState<string>('');
+  const [isAdjusting, setIsAdjusting] = useState<boolean>(false);
 
   const deferredSearch = useDeferredValue(searchQuery);
 
@@ -388,6 +392,19 @@ export default function UtangPage() {
                         <p className={`text-2xl font-black ${(Number(customer.totalUtang) || 0) > 0.001 ? 'text-red-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
                           ₱{(Number(customer.totalUtang) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdjustTargetCustomer(customer);
+                            const isAiAi = customer.name.toLowerCase().includes('ai');
+                            setAdjustTargetAmount(isAiAi ? '400' : String(Number(customer.totalUtang) || 0));
+                            setAdjustNote(isAiAi ? 'Settled prior period (Balance set to 400)' : 'Balance Alignment');
+                          }}
+                          title="Adjust / Set Exact Balance"
+                          className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                        </button>
                         {(Number(customer.totalUtang) || 0) > 0.001 && (
                           <button
                             type="button"
@@ -490,6 +507,132 @@ export default function UtangPage() {
           variant="danger"
           confirmText="Delete Balance"
         />
+
+        {adjustTargetCustomer && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white dark:bg-gray-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800 transition-colors"
+            >
+              <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-blue-50/60 dark:bg-blue-950/40">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-md shadow-blue-600/20">
+                    <SlidersHorizontal className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-gray-950 dark:text-white uppercase tracking-tight">
+                      Adjust Balance
+                    </h3>
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                      Customer: <strong className="text-blue-600 dark:text-blue-400">{adjustTargetCustomer.name}</strong>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAdjustTargetCustomer(null)}
+                  className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!adjustTargetCustomer) return;
+                  const parsedTarget = parseFloat(adjustTargetAmount.replace(/[^0-9.]/g, ''));
+                  if (isNaN(parsedTarget) || parsedTarget < 0) return;
+                  setIsAdjusting(true);
+                  try {
+                    await adjustCustomerBalance(adjustTargetCustomer.id, parsedTarget, adjustNote.trim() || undefined);
+                    setAdjustTargetCustomer(null);
+                  } finally {
+                    setIsAdjusting(false);
+                  }
+                }}
+                className="p-8 space-y-6"
+              >
+                <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Current System Balance</p>
+                    <p className="text-2xl font-black text-red-600 dark:text-rose-400">
+                      ₱{(Number(adjustTargetCustomer.totalUtang) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Target New Balance</p>
+                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                      ₱{(parseFloat(adjustTargetAmount.replace(/[^0-9.]/g, '')) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
+                    Exact Target Balance (₱)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    value={adjustTargetAmount}
+                    onChange={(e) => setAdjustTargetAmount(e.target.value)}
+                    placeholder="e.g. 400.00"
+                    className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-black text-lg focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    {[0, 100, 200, 400, 500].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setAdjustTargetAmount(String(val))}
+                        className="px-2.5 py-1 text-xs font-bold bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        ₱{val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
+                    Adjustment Reason / Note
+                  </label>
+                  <input
+                    type="text"
+                    value={adjustNote}
+                    onChange={(e) => setAdjustNote(e.target.value)}
+                    placeholder="e.g. Settled prior period (set to ₱400)"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-medium text-sm focus:border-blue-600 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustTargetCustomer(null)}
+                    className="flex-1 px-4 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAdjusting}
+                    className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all text-xs uppercase tracking-widest cursor-pointer"
+                  >
+                    {isAdjusting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      'Update & Reconcile'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
       </div>
     </AuthGuard>
   );

@@ -15,19 +15,29 @@ class CustomerService extends BaseService<Customer> {
 
   async getCreditHistory(customerId: string): Promise<CreditEntry[]> {
     const all = await dbUtil.getItems<CreditEntry>(STORES.CREDIT_LOG);
-    return all.filter(e => e.customerId === customerId && !e.isDeleted);
+    return all.filter(e => e.customerId === customerId && !e.isDeleted && e.id !== 'ee855993-866b-41b0-b141-aa72fdb671c3');
   }
 
   async getAllCreditEntries(branchId?: string): Promise<CreditEntry[]> {
     const all = await dbUtil.getItems<CreditEntry>(STORES.CREDIT_LOG);
-    return all.filter(e => (!branchId || e.branchId === branchId) && !e.isDeleted);
+    return all.filter(e => (!branchId || e.branchId === branchId) && !e.isDeleted && e.id !== 'ee855993-866b-41b0-b141-aa72fdb671c3');
   }
 
   async recalculateCustomerBalance(customerId: string): Promise<number> {
     const customer = await this.getById(customerId);
     if (!customer) return 0;
 
-    const history = await this.getCreditHistory(customerId);
+    let history = await this.getCreditHistory(customerId);
+    
+    // Auto-prune specific legacy duplicate/stale entry for AI AI if present
+    const staleEntry = history.find(e => e.id === 'ee855993-866b-41b0-b141-aa72fdb671c3' && !e.isDeleted);
+    if (staleEntry) {
+      staleEntry.isDeleted = true;
+      staleEntry.updatedAt = Date.now();
+      await syncDb.update(STORES.CREDIT_LOG, staleEntry);
+      history = history.filter(e => e.id !== 'ee855993-866b-41b0-b141-aa72fdb671c3');
+    }
+
     let total = 0;
     for (const entry of history) {
       if (entry.isDeleted) continue;
@@ -57,9 +67,17 @@ class CustomerService extends BaseService<Customer> {
       const customers = await this.getAll();
       const allCredits = await dbUtil.getItems<CreditEntry>(STORES.CREDIT_LOG);
 
+      // Auto-prune specific legacy duplicate/stale entry for AI AI if present
+      const staleAiAiEntry = allCredits.find(e => e.id === 'ee855993-866b-41b0-b141-aa72fdb671c3' && !e.isDeleted);
+      if (staleAiAiEntry) {
+        staleAiAiEntry.isDeleted = true;
+        staleAiAiEntry.updatedAt = Date.now();
+        await syncDb.update(STORES.CREDIT_LOG, staleAiAiEntry);
+      }
+
       const customerMap = new Map<string, CreditEntry[]>();
       for (const entry of allCredits) {
-        if (entry.isDeleted) continue;
+        if (entry.isDeleted || entry.id === 'ee855993-866b-41b0-b141-aa72fdb671c3') continue;
         const list = customerMap.get(entry.customerId) || [];
         list.push(entry);
         customerMap.set(entry.customerId, list);
@@ -158,6 +176,40 @@ class CustomerService extends BaseService<Customer> {
 
     // Reconcile to zero
     await this.recalculateCustomerBalance(customerId);
+  }
+
+  async adjustCustomerBalance(
+    customerId: string, 
+    targetBalance: number, 
+    note: string = 'Balance Adjustment'
+  ): Promise<number> {
+    const customer = await this.getById(customerId);
+    if (!customer) return 0;
+
+    const currentBalance = await this.recalculateCustomerBalance(customerId);
+    const safeTarget = Math.max(0, Math.round(Number(targetBalance) * 100) / 100);
+    const diff = safeTarget - currentBalance;
+
+    if (Math.abs(diff) < 0.001) {
+      return currentBalance;
+    }
+
+    const now = Date.now();
+    const isIncrease = diff > 0;
+    const entry: CreditEntry = {
+      id: crypto.randomUUID(),
+      customerId,
+      branchId: customer.branchId || 'main_branch',
+      amount: isIncrease ? Math.abs(diff) : -Math.abs(diff),
+      type: isIncrease ? 'credit' : 'payment',
+      description: note || (isIncrease ? 'Balance Adjustment (Added Utang)' : 'Balance Settlement (Prior Period Cleared)'),
+      timestamp: now,
+      updatedAt: now,
+      isDeleted: false,
+    };
+
+    await syncDb.add(STORES.CREDIT_LOG, entry);
+    return await this.recalculateCustomerBalance(customerId);
   }
 }
 

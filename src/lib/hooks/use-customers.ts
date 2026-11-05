@@ -127,6 +127,11 @@ export function useCustomers(branchId?: string) {
     await fetchCustomers();
   };
 
+  const adjustCustomerBalance = async (customerId: string, targetBalance: number, note?: string) => {
+    await customerService.adjustCustomerBalance(customerId, targetBalance, note);
+    await fetchCustomers();
+  };
+
   const getAllCreditLogs = async () => {
     const history = await customerService.getAllCreditEntries(branchId);
     return history.sort((a, b) => b.timestamp - a.timestamp);
@@ -142,6 +147,7 @@ export function useCustomers(branchId?: string) {
     getCreditHistory,
     deleteCreditEntry,
     clearCustomerBalance,
+    adjustCustomerBalance,
     getAllCreditLogs,
     refresh: fetchCustomers,
   };
