@@ -191,7 +191,15 @@ export async function pullStore(store: StoreName): Promise<any[]> {
     const url = `${BASE_URL}/${store}.json`;
     const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' } });
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('firebase_sync_error', 'Unauthorized');
+        }
+      }
       return dbUtil.getItems<any>(store);
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('firebase_sync_error');
     }
     const text = await response.text();
     if (!text || text === 'null') return [];

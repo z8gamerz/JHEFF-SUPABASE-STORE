@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { motion } from 'motion/react';
-import { Store, Mail, Lock, Loader2, ArrowRight, ShieldAlert, Clock } from 'lucide-react';
+import { Store, Mail, Lock, Loader2, ArrowRight, ShieldAlert, Clock, AlertTriangle, ExternalLink, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -14,16 +14,27 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [countdown, setCountdown] = useState<number>(0);
+  const [showFirebaseRestricted, setShowFirebaseRestricted] = useState(false);
+  const [copiedRules, setCopiedRules] = useState(false);
 
-  const { login, rateLimitStatus, refreshRateLimitStatus } = useAuth();
+  const { login, rateLimitStatus, refreshRateLimitStatus, resetRateLimit } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+
+  // Check if Firebase returned 401 Unauthorized
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setShowFirebaseRestricted(localStorage.getItem('firebase_sync_error') === 'Unauthorized');
+    }
+  }, []);
 
   // Synchronize countdown with rate limit status
   useEffect(() => {
     if (rateLimitStatus.lockoutSeconds > 0) {
       setCountdown(rateLimitStatus.lockoutSeconds);
+    } else {
+      setCountdown(0);
     }
   }, [rateLimitStatus]);
 
@@ -51,11 +62,21 @@ function LoginContent() {
       await login(email, password);
       router.push(callbackUrl);
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      const msg = err.message || 'Failed to login';
+      setError(msg);
+      if (msg.includes('Firebase') || msg.includes('Permission Denied')) {
+        setShowFirebaseRestricted(true);
+      }
       refreshRateLimitStatus();
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCopyRules = () => {
+    navigator.clipboard.writeText(`{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}`);
+    setCopiedRules(true);
+    setTimeout(() => setCopiedRules(false), 2000);
   };
 
   const isLocked = countdown > 0 || !rateLimitStatus.allowed;
@@ -82,20 +103,73 @@ function LoginContent() {
 
         <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-8 md:p-12 shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Firebase Database Restricted Notice */}
+            {showFirebaseRestricted && (
+              <div className="bg-rose-50 dark:bg-rose-950/60 text-rose-950 dark:text-rose-200 p-5 rounded-2xl text-xs border border-rose-200 dark:border-rose-900 space-y-3">
+                <div className="flex items-start gap-2.5 font-black text-rose-900 dark:text-rose-100">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="uppercase tracking-wider">Firebase Permission Denied</p>
+                    <p className="font-medium text-[11px] text-rose-800 dark:text-rose-300 mt-1 leading-relaxed">
+                      Naka-lock mode ang Realtime Database rules sa Firebase Console kaya hindi ma-download ang iyong account sa bagong device na ito.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gray-950 text-emerald-400 font-mono text-[11px] rounded-xl flex items-center justify-between">
+                  <span>{`{ "rules": { ".read": true, ".write": true } }`}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyRules}
+                    className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    {copiedRules ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+
+                <a
+                  href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-rose-700 dark:text-rose-400 underline font-black inline-flex items-center gap-1 hover:text-rose-900 text-[11px]"
+                >
+                  Buksan ang Firebase Rules Console <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
+
             {/* Lockout Warning */}
             {isLocked && (
-              <div className="bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 p-4 rounded-2xl text-xs font-bold border border-amber-200 dark:border-amber-800 flex items-center gap-3">
-                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-spin" />
-                <div>
-                  <p className="font-black uppercase tracking-wider">Account Security Lockout</p>
-                  <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-                    Too many failed attempts. Please wait <span className="font-black text-amber-900 dark:text-amber-100">{countdown}s</span> before retrying.
-                  </p>
+              <div className="bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 p-4 rounded-2xl text-xs font-bold border border-amber-200 dark:border-amber-800 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-spin" />
+                  <div>
+                    <p className="font-black uppercase tracking-wider">Account Security Lockout</p>
+                    <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
+                      Too many failed attempts. Please wait <span className="font-black text-amber-900 dark:text-amber-100">{countdown}s</span> before retrying.
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-amber-200 dark:border-amber-800/80 flex items-center justify-between">
+                  <span className="text-[10px] text-amber-800 dark:text-amber-300 font-bold">
+                    Admin Device Reset:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetRateLimit();
+                      setCountdown(0);
+                      setError('');
+                    }}
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer shadow-xs"
+                  >
+                    Unlock Device
+                  </button>
                 </div>
               </div>
             )}
 
-            {error && !isLocked && (
+            {error && !isLocked && !showFirebaseRestricted && (
               <div className="bg-red-50 dark:bg-rose-950/50 text-red-600 dark:text-rose-400 p-4 rounded-2xl text-xs font-bold border border-red-100 dark:border-rose-900/50 flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 shrink-0 text-red-500" />
                 <span>{error}</span>

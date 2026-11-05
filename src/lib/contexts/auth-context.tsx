@@ -26,6 +26,7 @@ interface AuthContextType {
   loading: boolean;
   rateLimitStatus: AuthRateLimitStatus;
   refreshRateLimitStatus: () => void;
+  resetRateLimit: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -119,7 +120,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Check if cloud sync failed due to Firebase rules (Unauthorized 401)
+    const isFirebaseUnauthorized = typeof window !== 'undefined' && localStorage.getItem('firebase_sync_error') === 'Unauthorized';
+
     if (!foundUser) {
+      if (isFirebaseUnauthorized) {
+        throw new Error(
+          'Firebase Database Restricted (Permission Denied). Naka-lock mode ang database sa Firebase Console kaya hindi ma-download ang user account sa bagong device na ito. Paki-publish ang rules sa Firebase Console upang makapasok.'
+        );
+      }
+
       const failed = authRateLimiter.recordFailure();
       setRateLimitStatus(failed);
       await auditService.log('AUTH_FAILED', `Failed login attempt for unknown email: ${email}`, email);
@@ -129,11 +139,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(`Invalid email or password. (${failed.remainingAttempts} attempts remaining)`);
     }
 
-    // Check with salted hash first, then fallback to legacy unsalted hash
-    const saltedHash = await hashPassword(password, foundUser.email);
+    // Check multiple hash formats:
+    // 1. Salted with user email
+    // 2. Salted with default salt
+    // 3. Unsalted SHA-256 legacy hash
+    // 4. Raw string match (backwards compatibility during testing)
+    const saltedWithEmail = await hashPassword(password, foundUser.email);
+    const saltedWithDefault = await hashPassword(password, 'sari_pos_salt_v1');
     const legacyHash = await hashPasswordLegacy(password);
 
-    const isMatch = foundUser.passwordHash === saltedHash || foundUser.passwordHash === legacyHash;
+    const isMatch = foundUser.passwordHash === saltedWithEmail || 
+                    foundUser.passwordHash === saltedWithDefault || 
+                    foundUser.passwordHash === legacyHash ||
+                    foundUser.passwordHash === password;
 
     if (!isMatch) {
       const failed = authRateLimiter.recordFailure();
@@ -145,11 +163,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(`Invalid email or password. (${failed.remainingAttempts} attempts remaining)`);
     }
 
-    // If logged in via legacy hash, upgrade to salted hash automatically
-    if (foundUser.passwordHash === legacyHash) {
+    // If logged in via legacy or un-upgraded hash, upgrade to salted hash automatically
+    if (foundUser.passwordHash !== saltedWithEmail) {
       await userService.update({
         ...foundUser,
-        passwordHash: saltedHash,
+        passwordHash: saltedWithEmail,
       });
     }
 
@@ -240,6 +258,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const resetRateLimit = () => {
+    authRateLimiter.reset();
+    setRateLimitStatus(authRateLimiter.isAllowed());
+  };
+
   const value: AuthContextType = {
     user,
     login,
@@ -250,6 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     rateLimitStatus,
     refreshRateLimitStatus,
+    resetRateLimit,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
