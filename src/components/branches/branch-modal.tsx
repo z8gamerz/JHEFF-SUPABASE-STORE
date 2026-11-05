@@ -34,9 +34,9 @@ export function BranchModal({ onClose }: BranchModalProps) {
         address: formData.address.trim(),
       });
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to add branch:', err);
-      setError('Failed to add branch. Please try again.');
+      setError(err?.message || 'Failed to add branch. Only administrators have permission.');
     } finally {
       setIsSaving(false);
     }

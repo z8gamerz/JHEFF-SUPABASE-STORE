@@ -382,32 +382,13 @@ export async function clearDatabaseAll(): Promise<void> {
 
   try {
     await dbUtil.clearStore(STORES.BRANCHES);
-    const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
-    const businessId = storeInfo[0]?.id || 'main_config';
-    const mainBranchId = crypto.randomUUID();
-    const now = Date.now();
-    const defaultBranch = {
-      id: mainBranchId,
-      name: 'Main Branch',
-      address: storeInfo[0]?.address || 'Main Address',
-      businessId,
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false
-    };
-    await dbUtil.addItem(STORES.BRANCHES, defaultBranch);
-    localStorage.setItem('sarisari_current_branch_id', mainBranchId);
+    localStorage.removeItem('sarisari_current_branch_id');
 
     if (typeof window !== 'undefined' && window.navigator.onLine) {
       await fetch(`${BASE_URL}/${STORES.BRANCHES}.json`, { method: 'DELETE' });
-      await fetch(`${BASE_URL}/${STORES.BRANCHES}/${mainBranchId}.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(defaultBranch)
-      });
     }
   } catch (e) {
-    console.error('Failed to reset branches:', e);
+    console.error('Failed to clear branches:', e);
   }
 
   console.log('[CloudSync] Database wipe completed.');

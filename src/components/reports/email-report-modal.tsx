@@ -20,7 +20,8 @@ import {
   TrendingUp,
   Receipt,
   Sparkles,
-  Info
+  Info,
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
 import { metadataService } from '@/lib/services/metadata-service';
@@ -168,6 +169,21 @@ export function EmailReportModal({
   const isCredentialsReady = Boolean(senderEmail && appPassword);
   const isAnyReportSelected = includeDailySummary || includeSalesJournal || includeCreditReport;
 
+  const handleDownloadCSVs = () => {
+    if (!generatedData.attachments || generatedData.attachments.length === 0) return;
+    for (const att of generatedData.attachments) {
+      const blob = new Blob([att.content], { type: `${att.contentType || 'text/csv'};charset=utf-8;` });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = att.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const handleSendEmail = async () => {
     if (!recipientEmail || !recipientEmail.includes('@')) {
       setErrorMessage('Please enter a valid recipient email address.');
@@ -201,10 +217,19 @@ export function EmailReportModal({
         }),
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: any = null;
+      try {
+        result = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        console.error('Non-JSON response from /api/send-report-email:', responseText);
+      }
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to dispatch email. Please check your credentials.');
+      if (!response.ok || !result || !result.success) {
+        const fallbackMsg = response.status === 404 || response.status === 405
+          ? `Serverless endpoint not found (${response.status}). Verify Vercel /api deployment.`
+          : `Failed to dispatch email (HTTP ${response.status}). Check Gmail App Password.`;
+        throw new Error(result?.error || fallbackMsg);
       }
 
       await auditService.log(
@@ -533,13 +558,26 @@ export function EmailReportModal({
 
               {/* Live Preview Summary Card */}
               <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Live Period Snapshot ({branchName})
                   </span>
-                  <span className="text-[10px] font-black uppercase bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
-                    {generatedData.attachments.length} CSV Attached
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {generatedData.attachments.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleDownloadCSVs}
+                        title="Download all selected report CSV files"
+                        className="text-[10px] font-black uppercase bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <Download className="w-3 h-3" />
+                        Download CSVs
+                      </button>
+                    )}
+                    <span className="text-[10px] font-black uppercase bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full">
+                      {generatedData.attachments.length} CSV Attached
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center">

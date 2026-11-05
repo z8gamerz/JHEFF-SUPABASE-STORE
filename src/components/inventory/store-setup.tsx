@@ -9,7 +9,7 @@ import { Store, ArrowRight, Loader2 } from 'lucide-react';
 
 export function StoreSetup() {
   const { updateStore } = useStore();
-  const { addBranch } = useBranches();
+  const { addBranch, isAdmin } = useBranches();
   const [name, setName] = useState('');
   const [taxType, setTaxType] = useState<'VAT' | 'NON-VAT'>('NON-VAT');
   const [isSaving, setIsSaving] = useState(false);
@@ -21,14 +21,16 @@ export function StoreSetup() {
     setIsSaving(true);
     try {
       await updateStore(name, taxType);
-      // Create initial default branch only if no branches exist
-      const existingBranches = (await branchService.getAll()).filter(b => !b.isDeleted);
-      if (existingBranches.length === 0) {
-        await addBranch({
-          name: name ? `${name} - Main Branch` : 'Main Branch',
-          address: 'Main Store Address',
-          contact: 'N/A'
-        });
+      // Create initial branch only if user is an administrator and no branches exist
+      if (isAdmin) {
+        const existingBranches = (await branchService.getAll()).filter(b => !b.isDeleted);
+        if (existingBranches.length === 0) {
+          await addBranch({
+            name: name ? `${name} - Main Branch` : 'Main Branch',
+            address: 'Main Store Address',
+            contact: 'N/A'
+          });
+        }
       }
     } catch (error) {
       console.error('Setup failed:', error);

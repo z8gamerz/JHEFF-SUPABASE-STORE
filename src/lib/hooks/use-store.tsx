@@ -10,6 +10,7 @@ import { pullSync, processQueue } from '@/lib/db/sync-queue';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { STORES } from '@/lib/db/idb';
 import { realtimeSync } from '@/lib/db/realtime-sync';
+import { userService } from '@/lib/services/user-service';
 
 const CURRENT_BRANCH_KEY = 'sarisari_current_branch_id';
 
@@ -78,23 +79,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         activeBranches = allBranchesInDb;
       }
       
-      // ONLY create a default branch if absolutely zero branches exist in the database
-      if (activeBranches.length === 0 && allBranchesInDb.length === 0) {
-        const id = crypto.randomUUID();
-        const now = Date.now();
-        const mainBranch: Branch = {
-          id,
-          name: 'Main Branch',
-          address: currentStore?.address || 'Main Address',
-          businessId,
-          createdAt: now,
-          updatedAt: now,
-          isDeleted: false,
-        };
-        await branchService.create(mainBranch);
-        activeBranches = [mainBranch];
-        await auditService.log('BRANCH_AUTO_CREATE', JSON.stringify({ name: mainBranch.name, id }));
-      }
+      // Never auto-create branches without explicit administrator permission.
+      // Branches must be explicitly created by an administrator.
 
       const sortedBranches = activeBranches.sort((a, b) => b.createdAt - a.createdAt);
       setAllBranches(sortedBranches);
@@ -211,8 +197,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addBranch = async (branch: Omit<Branch, 'id' | 'createdAt' | 'updatedAt' | 'businessId' | 'isDeleted'>) => {
-    if (user && !isAdmin) {
-      throw new Error('Only administrators are authorized to add new branches.');
+    // Strict RBAC: Only administrators are permitted to add branches
+    const allUsers = await userService.getAll();
+    if (allUsers.length > 0 && (!user || user.role !== 'admin')) {
+      throw new Error('Permission Denied: Only administrators are permitted to add new branches.');
     }
     const businessId = store?.id || 'main_config';
     const id = crypto.randomUUID();
@@ -226,26 +214,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       isDeleted: false,
     };
     await branchService.create(newBranch);
-    await auditService.log('BRANCH_ADD', JSON.stringify({ name: branch.name, id }));
+    await auditService.log('BRANCH_ADD', JSON.stringify({ name: branch.name, id, createdBy: user?.name || user?.email || 'Admin' }));
     await loadStore();
     return newBranch;
   };
 
   const updateBranch = async (branch: Branch) => {
-    if (user && !isAdmin) {
-      throw new Error('Only administrators are authorized to modify branches.');
+    if (!user || user.role !== 'admin') {
+      throw new Error('Permission Denied: Only administrators are authorized to modify branches.');
     }
     await branchService.update(branch);
-    await auditService.log('BRANCH_UPDATE', JSON.stringify({ name: branch.name, id: branch.id }));
+    await auditService.log('BRANCH_UPDATE', JSON.stringify({ name: branch.name, id: branch.id, updatedBy: user?.name || user?.email || 'Admin' }));
     await loadStore();
   };
 
   const deleteBranch = async (id: string) => {
-    if (user && !isAdmin) {
-      throw new Error('Only administrators are authorized to delete branches.');
+    if (!user || user.role !== 'admin') {
+      throw new Error('Permission Denied: Only administrators are authorized to delete branches.');
     }
     await branchService.delete(id);
-    await auditService.log('BRANCH_DELETE', JSON.stringify({ id }));
+    await auditService.log('BRANCH_DELETE', JSON.stringify({ id, deletedBy: user?.name || user?.email || 'Admin' }));
     await loadStore();
   };
 

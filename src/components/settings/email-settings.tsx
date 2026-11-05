@@ -112,16 +112,26 @@ export function EmailSettings() {
         }),
       });
 
-      const data = await response.json();
-      if (response.ok && data.success) {
+      const responseText = await response.text();
+      let data: any = null;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        console.error('Non-JSON response from /api/test-smtp:', responseText);
+      }
+
+      if (response.ok && data?.success) {
         setTestResult({
           success: true,
           message: 'Connection successful! Your Google App Password is authenticated and ready to dispatch reports.',
         });
       } else {
+        const fallbackMsg = response.status === 404 || response.status === 405
+          ? `Serverless endpoint not found (${response.status}). Verify Vercel /api deployment.`
+          : 'Authentication failed. Please verify your Google App Password and ensure 2-Step Verification is active.';
         setTestResult({
           success: false,
-          message: data.error || 'Authentication failed. Please verify your Google App Password and ensure 2-Step Verification is active.',
+          message: data?.error || fallbackMsg,
         });
       }
     } catch (err: any) {

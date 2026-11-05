@@ -12,10 +12,14 @@ interface BranchManagementProps {
 }
 
 export function BranchManagement({ onClose }: BranchManagementProps) {
-  const { branches, addBranch, updateBranch, deleteBranch, loading } = useBranches();
+  const { branches, addBranch, updateBranch, deleteBranch, loading, isAdmin } = useBranches();
   const [editingBranch, setEditingBranch] = useState<Branch | null | 'new'>(null);
 
   const handleSave = async (branchData: any) => {
+    if (!isAdmin) {
+      alert('Only administrators are authorized to add or edit branches.');
+      return;
+    }
     if (editingBranch === 'new') {
       await addBranch(branchData);
     } else if (editingBranch) {
@@ -53,14 +57,16 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
         <div className="flex-1 overflow-y-auto p-8">
           <div className="flex justify-between items-center mb-6">
             <h4 className="text-lg font-black text-gray-950 dark:text-white tracking-tight">All Branches</h4>
-            <button
-              type="button"
-              onClick={() => setEditingBranch('new')}
-              className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-700 transition-colors shadow-md shadow-orange-500/20 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Add Branch
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setEditingBranch('new')}
+                className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-700 transition-colors shadow-md shadow-orange-500/20 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Add Branch
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -105,28 +111,30 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingBranch(branch)}
-                      className="p-3 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors shadow-xs cursor-pointer"
-                      title="Edit Branch"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to delete ${branch.name}?`)) {
-                          deleteBranch(branch.id);
-                        }
-                      }}
-                      className="p-3 bg-white dark:bg-gray-800 text-red-600 dark:text-rose-400 rounded-2xl hover:bg-red-50 dark:hover:bg-rose-900/40 transition-colors shadow-xs cursor-pointer"
-                      title="Delete Branch"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingBranch(branch)}
+                        className="p-3 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors shadow-xs cursor-pointer"
+                        title="Edit Branch"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete ${branch.name}?`)) {
+                            deleteBranch(branch.id);
+                          }
+                        }}
+                        className="p-3 bg-white dark:bg-gray-800 text-red-600 dark:text-rose-400 rounded-2xl hover:bg-red-50 dark:hover:bg-rose-900/40 transition-colors shadow-xs cursor-pointer"
+                        title="Delete Branch"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>
