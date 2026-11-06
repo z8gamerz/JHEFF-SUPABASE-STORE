@@ -62,29 +62,29 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
   };
 
   return (
-    <header className="border-b bg-white/80 dark:bg-gray-900/90 dark:border-gray-800 backdrop-blur-md px-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-50 shadow-xs transition-colors">
+    <header className="border-b bg-white/85 dark:bg-gray-900/95 dark:border-gray-800 backdrop-blur-md px-2.5 sm:px-4 md:px-8 py-2.5 sm:py-3.5 flex items-center justify-between sticky top-0 z-50 shadow-xs transition-colors w-full">
       <motion.div 
-        initial={{ opacity: 0, x: -20 }}
+        initial={{ opacity: 0, x: -15 }}
         animate={{ opacity: 1, x: 0 }}
-        className="flex items-center gap-4"
+        className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0"
       >
-        <Link href="/" className="flex items-center gap-4 hover:opacity-90 transition-opacity group cursor-pointer" title="Back to Dashboard">
-          <div className="bg-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-200 dark:shadow-none group-hover:scale-105 transition-transform">
-            <Store className="text-white w-6 h-6" />
+        <Link href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-90 transition-opacity group cursor-pointer min-w-0" title="Back to Dashboard">
+          <div className="bg-orange-600 p-2 sm:p-2.5 md:p-3 rounded-xl sm:rounded-2xl shadow-md shadow-orange-200 dark:shadow-none group-hover:scale-105 transition-transform shrink-0">
+            <Store className="text-white w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <h1 className="font-black text-xl md:text-2xl tracking-tight text-gray-900 dark:text-white leading-tight">
+          <div className="min-w-0">
+            <h1 className="font-black text-sm sm:text-lg md:text-2xl tracking-tight text-gray-900 dark:text-white leading-tight truncate max-w-[95px] xs:max-w-[140px] sm:max-w-[200px] md:max-w-none">
               {store?.name || 'Sari-Sari POS'}
             </h1>
-            <div className="flex items-center gap-3 mt-0.5">
-              <div className="flex items-center gap-1 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="hidden xs:flex items-center gap-1 text-[9px] sm:text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest shrink-0">
+                <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 {new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
               </div>
               {ticketNumber && (
-                <div className="flex items-center gap-1 text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">
+                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest shrink-0">
                   <span className="w-1 h-1 bg-orange-600 dark:bg-orange-400 rounded-full" />
-                  Ticket: {ticketNumber}
+                  <span className="hidden xs:inline">Ticket:</span> {ticketNumber}
                 </div>
               )}
             </div>
@@ -92,18 +92,18 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
         </Link>
       </motion.div>
       
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Dark Theme Toggle */}
-        <ThemeToggle variant="header" showLabel={true} />
+      <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 shrink-0">
+        {/* Dark Theme Toggle (icon only on mobile to prevent overlapping) */}
+        <ThemeToggle variant="header" showLabel={false} className="shrink-0" />
 
         {/* PWA Install Button */}
-        <PWAInstallButton variant="header" />
+        <PWAInstallButton variant="header" className="shrink-0" />
 
         {/* Firebase Live Webhook / Auto-Push Sync Button */}
         <button
           onClick={handleSync}
           disabled={isSyncing}
-          className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-2xl border transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold rounded-xl sm:rounded-2xl border transition-all cursor-pointer shrink-0 ${
             isSyncing 
               ? 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-400 animate-pulse'
               : syncSuccess
@@ -134,25 +134,25 @@ export function Header({ ticketNumber }: { ticketNumber?: string }) {
           ) : (
             <RefreshCw className="w-3.5 h-3.5" />
           )}
-          <span className="hidden md:inline">
+          <span className="hidden lg:inline">
             {isSyncing ? 'Syncing...' : syncSuccess ? 'Synced' : hasSyncError ? 'Auth Error' : streamStatus === 'connected' ? 'Live Auto-Push' : 'Sync'}
           </span>
         </button>
 
         {/* User Menu */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button 
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-700 transition-all group cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:px-3 sm:py-2 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-700 transition-all group cursor-pointer"
           >
-            <div className={`p-1.5 rounded-lg ${user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300'}`}>
+            <div className={`p-1 sm:p-1.5 rounded-lg ${user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300'}`}>
               <UserCircle className="w-4 h-4" />
             </div>
-            <div className="text-left hidden sm:block min-w-0">
+            <div className="text-left hidden md:block min-w-0">
               <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-tight">{user?.role}</p>
-              <p className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-tight truncate max-w-[120px] mt-0.5">{user?.email}</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-tight truncate max-w-[100px] lg:max-w-[130px] mt-0.5">{user?.email}</p>
             </div>
-            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
           <AnimatePresence>

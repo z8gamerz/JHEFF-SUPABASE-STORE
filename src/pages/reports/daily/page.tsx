@@ -155,9 +155,9 @@ export default function DailySummaryPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
       <Header />
       
-      <div className="flex-1 p-4 sm:p-6 md:p-12 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 sm:gap-6 mb-8 sm:mb-12">
+      <div className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto w-full">
+        <div className="w-full">
+          <div className="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
             <Link 
               href="/"
               className="p-3.5 sm:p-4 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl sm:rounded-[1.5rem] transition-all text-gray-800 dark:text-gray-200 hover:text-gray-950 dark:hover:text-white border-2 border-gray-200 dark:border-gray-800 shadow-xs shrink-0"
@@ -176,7 +176,7 @@ export default function DailySummaryPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {cards.map((card, index) => (
               <motion.div
                 key={card.title}

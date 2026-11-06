@@ -349,47 +349,47 @@ export default function POSPage() {
         
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           {/* Product Selection Area */}
-          <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-            <div className="max-w-6xl mx-auto">
+          <div className="flex-1 p-3 sm:p-5 md:p-6 lg:p-8 overflow-y-auto w-full">
+            <div className="w-full">
               <div className="flex flex-col gap-6 mb-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3">
                     <Link 
                       href="/"
-                      className="p-3 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all text-gray-800 hover:text-gray-950 dark:text-gray-200 dark:hover:text-white border-2 border-gray-300 dark:border-gray-700 shadow-sm"
+                      className="p-2 sm:p-3 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl sm:rounded-2xl transition-all text-gray-800 hover:text-gray-950 dark:text-gray-200 dark:hover:text-white border-2 border-gray-300 dark:border-gray-700 shadow-sm shrink-0"
                       title="Back to Dashboard"
                     >
-                      <ArrowLeft className="w-6 h-6 stroke-[2.5]" />
+                      <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
                     </Link>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h2 className="text-3xl sm:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase">Checkout</h2>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight">Checkout</h2>
                         {currentBranch && (
-                          <span className="bg-orange-100 dark:bg-orange-950/90 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-2xs">
-                            <MapPin className="w-3.5 h-3.5" />
+                          <span className="bg-orange-100 dark:bg-orange-950/90 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1 shadow-2xs shrink-0">
+                            <MapPin className="w-3 h-3" />
                             {currentBranch.name}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Select items for transaction</p>
+                      <p className="text-[10px] sm:text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Select items for transaction</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                     <QuickAdd onAdd={handleQuickAdd} />
                     <button
                       onClick={() => setIsEWalletOpen(true)}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-2xl transition-all text-white shadow-lg shadow-blue-500/20 font-black text-xs uppercase tracking-widest cursor-pointer"
+                      className="flex items-center gap-1.5 px-3.5 sm:px-5 py-2.5 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-xl sm:rounded-2xl transition-all text-white shadow-md shadow-blue-500/20 font-black text-xs uppercase tracking-wider cursor-pointer shrink-0"
                     >
-                      <Wallet className="w-4 h-4" />
-                      E-Wallet
+                      <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span>E-Wallet</span>
                     </button>
                     <Link
                       href="/pos/history"
-                      className="flex items-center gap-2 px-6 py-3.5 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all text-gray-950 dark:text-white border-2 border-gray-300 dark:border-gray-700 shadow-sm font-black text-xs uppercase tracking-widest"
+                      className="flex items-center gap-1.5 px-3.5 sm:px-5 py-2.5 sm:py-3.5 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl sm:rounded-2xl transition-all text-gray-950 dark:text-white border-2 border-gray-300 dark:border-gray-700 shadow-sm font-black text-xs uppercase tracking-wider shrink-0"
                     >
-                      <History className="w-4 h-4 stroke-[2.5]" />
-                      History
+                      <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                      <span>History</span>
                     </Link>
                   </div>
                 </div>
@@ -523,7 +523,7 @@ export default function POSPage() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-6 pb-24 lg:pb-0">
+                <div className="space-y-6 pb-36 sm:pb-40 lg:pb-6">
                   {/* 5 columns x 4 rows POS Product Display Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 gap-3.5 sm:gap-4">
                     {visibleProducts.map((product) => (

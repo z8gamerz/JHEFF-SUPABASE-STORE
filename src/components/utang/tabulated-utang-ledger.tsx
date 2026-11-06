@@ -311,53 +311,53 @@ export function TabulatedUtangLedger({
       </div>
 
       {/* Tabulated KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-            Total Tabulated Records
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="bg-white dark:bg-gray-900 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0.5 sm:mb-1">
+            Total Records
           </p>
-          <p className="text-2xl font-black text-gray-900 dark:text-white">
+          <p className="text-lg sm:text-2xl font-black text-gray-900 dark:text-white">
             {totalRecords} <span className="text-xs font-bold text-gray-400">entries</span>
           </p>
-          <p className="text-xs text-gray-400 mt-1">Source: <strong className="capitalize">{viewSource} Storage</strong></p>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 truncate">Source: <strong className="capitalize">{viewSource}</strong></p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-            Total Utang Released (+Debits)
+        <div className="bg-white dark:bg-gray-900 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0.5 sm:mb-1">
+            Utang (+Debits)
           </p>
-          <p className="text-2xl font-black text-red-600 dark:text-rose-400">
+          <p className="text-lg sm:text-2xl font-black text-red-600 dark:text-rose-400 truncate">
             ₱{totalDebits.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-gray-400 mt-1">Total credit extended</p>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">Total credit extended</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-            Total Payments Collected (-Credits)
+        <div className="bg-white dark:bg-gray-900 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0.5 sm:mb-1">
+            Bayad (-Credits)
           </p>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+          <p className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 truncate">
             ₱{totalCredits.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-gray-400 mt-1">Total cash/digital bayad</p>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">Total cash/digital bayad</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
-          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-            Net Outstanding Receivables
+        <div className="bg-white dark:bg-gray-900 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
+          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-0.5 sm:mb-1">
+            Net Receivables
           </p>
-          <p className="text-2xl font-black text-purple-600 dark:text-purple-400">
+          <p className="text-lg sm:text-2xl font-black text-purple-600 dark:text-purple-400 truncate">
             ₱{Math.max(0, totalDebits - totalCredits).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-gray-400 mt-1">Reconciled ledger balance</p>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1">Outstanding balance</p>
         </div>
       </div>
 
       {/* Strict Filter & Documentation Toolbar */}
-      <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+      <div className="bg-white dark:bg-gray-900 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
           {/* Search Input */}
-          <div className="relative w-full sm:w-64">
+          <div className="relative flex-1 sm:w-64 min-w-[160px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -372,7 +372,7 @@ export function TabulatedUtangLedger({
           <select
             value={selectedCustomerId}
             onChange={(e) => setSelectedCustomerId(e.target.value)}
-            className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500 cursor-pointer"
+            className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500 cursor-pointer max-w-[180px] truncate"
           >
             <option value="all">All Customers ({customers.length})</option>
             {customers.map(c => (
@@ -383,61 +383,61 @@ export function TabulatedUtangLedger({
           </select>
 
           {/* Type Filter Buttons */}
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+          <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto max-w-full">
             <button
               type="button"
               onClick={() => setTypeFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 typeFilter === 'all'
                   ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs'
                   : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              All Types
+              All
             </button>
             <button
               type="button"
               onClick={() => setTypeFilter('credit')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 typeFilter === 'credit'
                   ? 'bg-white dark:bg-gray-700 text-red-600 dark:text-rose-400 shadow-2xs'
                   : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              Credits Only (+Utang)
+              Credits (+Utang)
             </button>
             <button
               type="button"
               onClick={() => setTypeFilter('payment')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 typeFilter === 'payment'
                   ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              Payments Only (-Bayad)
+              Payments (-Bayad)
             </button>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap sm:flex-nowrap">
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3.5 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+            className="px-3 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Export CSV</span>
+            <span>CSV</span>
           </button>
 
           <button
             type="button"
             onClick={() => window.print()}
-            className="px-3.5 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+            className="px-3 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
           >
             <Printer className="w-3.5 h-3.5 text-gray-500" />
-            <span>Print Table</span>
+            <span>Print</span>
           </button>
         </div>
       </div>

@@ -92,8 +92,8 @@ export default function EWalletHistoryPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
       <Header />
       
-      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">
+      <div className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto w-full">
+        <div className="w-full">
           <div className="flex flex-col gap-8 mb-8">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

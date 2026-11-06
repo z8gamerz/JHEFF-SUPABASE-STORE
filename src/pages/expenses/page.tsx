@@ -127,8 +127,8 @@ export default function ExpensesPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
         
-        <div className="flex-1 p-6 md:p-12 overflow-y-auto">
-          <div className="max-w-7xl mx-auto">
+        <div className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto w-full">
+          <div className="w-full space-y-6">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
               <div className="flex items-center gap-6">

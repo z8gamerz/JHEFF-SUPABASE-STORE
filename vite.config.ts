@@ -273,11 +273,29 @@ export default defineConfig(() => {
       }),
     ],
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, './src'),
         'next/link': path.resolve(__dirname, './src/lib/router-shim.tsx'),
         'next/navigation': path.resolve(__dirname, './src/lib/router-shim.tsx'),
       },
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'react-dom',
+        'react-dom/client',
+        'motion/react',
+        'lucide-react',
+        '@upstash/redis',
+        'date-fns',
+        'papaparse',
+        'recharts',
+        'clsx',
+        'tailwind-merge'
+      ],
     },
     server: {
       host: '0.0.0.0',

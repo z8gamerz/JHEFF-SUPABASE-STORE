@@ -174,45 +174,46 @@ function HomeDashboard() {
   const filteredItems = menuItems.filter(item => !item.adminOnly || !isCashier);
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors flex flex-col">
       <Header />
         
-        <div className="p-6 md:p-12 max-w-7xl mx-auto">
+      <div className="w-full flex-1 px-3 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 flex flex-col justify-between">
+        <div className="w-full">
           {/* PWA Install Banner (automatically hides if already installed) */}
-          <PWAInstallButton variant="banner" className="mb-8" />
+          <PWAInstallButton variant="banner" className="mb-4 sm:mb-6" />
 
           <AnimatePresence>
             {showSyncError && (
               <motion.div
                 initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 32 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
                 exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                className="bg-rose-50 border-2 border-rose-100 rounded-[2.5rem] p-6 md:p-10 shadow-xl overflow-hidden relative text-left"
+                className="bg-rose-50 border-2 border-rose-100 rounded-3xl p-5 md:p-8 shadow-xl overflow-hidden relative text-left mb-6"
               >
                 <button 
                   onClick={() => setShowSyncError(false)}
-                  className="absolute top-6 right-6 p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-100/50 rounded-full transition-all cursor-pointer"
+                  className="absolute top-5 right-5 p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-100/50 rounded-full transition-all cursor-pointer"
                   title="Dismiss alert"
                 >
                   <X className="w-5 h-5" />
                 </button>
 
-                <div className="flex gap-5 flex-col md:flex-row items-start">
-                  <div className="bg-rose-100 text-rose-600 p-4 rounded-3xl flex-shrink-0">
-                    <CloudLightning className="w-8 h-8 animate-bounce" />
+                <div className="flex gap-4 flex-col md:flex-row items-start">
+                  <div className="bg-rose-100 text-rose-600 p-3.5 rounded-2xl flex-shrink-0">
+                    <CloudLightning className="w-7 h-7 animate-bounce" />
                   </div>
                   <div className="flex-grow text-left">
-                    <h3 className="text-2xl font-black tracking-tight text-rose-950 mb-3 flex items-center gap-2">
+                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-rose-950 mb-2 flex items-center gap-2">
                       Firebase Database Connection Restricted
                     </h3>
-                    <p className="text-sm font-medium text-rose-800/90 leading-relaxed mb-6 max-w-3xl">
+                    <p className="text-xs sm:text-sm font-medium text-rose-800/90 leading-relaxed mb-4">
                       Your POS system successfully connected to the Firebase Realtime Database, but received an <strong className="font-bold">Unauthorized (401)</strong> response. This happens because default security rules in new Firebase projects are set to Locked Mode. Follow these simple steps to authorize access:
                     </p>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-2">
-                      <div className="space-y-4 text-sm text-rose-950/90 font-medium">
-                        <div className="flex gap-3">
-                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-6 h-6 rounded-full text-xs shrink-0 mt-0.5">1</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-2">
+                      <div className="space-y-3 text-xs sm:text-sm text-rose-950/90 font-medium">
+                        <div className="flex gap-2.5">
+                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-5 h-5 rounded-full text-xs shrink-0 mt-0.5">1</span>
                           <div>
                             Open your <a href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules" target="_blank" rel="noopener noreferrer" className="text-rose-700 underline font-black inline-flex items-center gap-1 hover:text-rose-900 transition-all cursor-pointer">
                               Firebase Rules Console <ExternalLink className="w-3 h-3" />
@@ -220,27 +221,27 @@ function HomeDashboard() {
                           </div>
                         </div>
 
-                        <div className="flex gap-3">
-                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-6 h-6 rounded-full text-xs shrink-0 mt-0.5">2</span>
+                        <div className="flex gap-2.5">
+                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-5 h-5 rounded-full text-xs shrink-0 mt-0.5">2</span>
                           <p>Copy the database rules block on the right.</p>
                         </div>
 
-                        <div className="flex gap-3">
-                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-6 h-6 rounded-full text-xs shrink-0 mt-0.5">3</span>
+                        <div className="flex gap-2.5">
+                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-5 h-5 rounded-full text-xs shrink-0 mt-0.5">3</span>
                           <p>Paste them inside the rules editor and click <strong className="font-bold text-rose-900">Publish</strong>.</p>
                         </div>
 
-                        <div className="flex gap-3">
-                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-6 h-6 rounded-full text-xs shrink-0 mt-0.5">4</span>
+                        <div className="flex gap-2.5">
+                          <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-5 h-5 rounded-full text-xs shrink-0 mt-0.5">4</span>
                           <p>Click the <strong className="font-bold text-rose-900">Sync</strong> button in the top menu to complete data sync!</p>
                         </div>
                       </div>
 
                       <div className="relative">
-                        <div className="absolute top-3 right-3 z-10">
+                        <div className="absolute top-2.5 right-2.5 z-10">
                           <button
                             onClick={handleCopyRules}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
                               copiedRules 
                                 ? 'bg-green-600 text-white shadow-green-100' 
                                 : 'bg-gray-900 text-white hover:bg-gray-800'
@@ -250,7 +251,7 @@ function HomeDashboard() {
                             {copiedRules ? 'Copied!' : 'Copy Rules'}
                           </button>
                         </div>
-                        <pre className="bg-gray-950 text-emerald-400 font-mono text-xs rounded-2xl p-5 border border-rose-200/30 overflow-x-auto text-left leading-normal shadow-inner max-h-[160px]">
+                        <pre className="bg-gray-950 text-emerald-400 font-mono text-xs rounded-xl p-4 border border-rose-200/30 overflow-x-auto text-left leading-normal shadow-inner max-h-[140px]">
 {`{
   "rules": {
     ".read": "true",
@@ -266,63 +267,72 @@ function HomeDashboard() {
             )}
           </AnimatePresence>
 
+          {/* Full-width Responsive Hero & Action Cards */}
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-900 rounded-[3rem] p-8 md:p-16 text-center border border-gray-100 dark:border-gray-800 shadow-2xl relative overflow-hidden transition-colors"
+            className="w-full bg-white dark:bg-gray-900 rounded-3xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 text-center border border-gray-200 dark:border-gray-800 shadow-xl relative overflow-hidden transition-colors"
           >
-            {/* Decorative background element */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-orange-50 dark:bg-orange-950/20 rounded-full -mr-32 -mt-32 opacity-50 blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50 dark:bg-blue-950/20 rounded-full -ml-32 -mb-32 opacity-50 blur-3xl pointer-events-none" />
+            {/* Ambient decorative glow */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full -mr-32 -mt-32 opacity-60 blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full -ml-32 -mb-32 opacity-60 blur-3xl pointer-events-none" />
   
-            <div className="relative z-10">
-              <h2 className="text-4xl md:text-6xl font-black text-gray-950 dark:text-white mb-6 tracking-tighter leading-tight">
-                Mabuhay, {store.name}!
-              </h2>
-              <p className="text-xl text-gray-700 dark:text-gray-200 mb-16 font-bold max-w-2xl mx-auto">
-                Your store is open and ready for business. What would you like to do today?
-              </p>
+            <div className="relative z-10 w-full">
+              <div className="mb-6 sm:mb-8 text-center max-w-4xl mx-auto">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-gray-950 dark:text-white tracking-tight leading-tight">
+                  Mabuhay, {store.name}!
+                </h2>
+                <p className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300 font-bold mt-2">
+                  Your store is open and ready for business. What would you like to do today?
+                </p>
+              </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+              {/* Auto-resizing Fluid Grid for all devices */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 w-full">
                 {filteredItems.map((item, index) => (
                   <motion.div
                     key={item.title}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: index * 0.04 }}
+                    className="h-full"
                   >
                     {'href' in item && item.href ? (
                       <Link 
                         href={item.href}
-                        className={`group block p-10 ${item.bg} rounded-[2.5rem] border border-transparent hover:border-white hover:shadow-2xl transition-all relative overflow-hidden h-full`}
+                        className={`group flex flex-col justify-between p-4 sm:p-6 md:p-7 ${item.bg} rounded-2xl sm:rounded-3xl border-2 border-transparent hover:border-orange-500/40 hover:shadow-2xl transition-all relative overflow-hidden h-full text-left`}
                       >
-                        <div className={`${item.color} w-16 h-16 rounded-2xl flex items-center justify-center mb-8 text-white shadow-2xl ${item.shadow} group-hover:scale-110 transition-transform`}>
-                          <item.icon className="w-8 h-8" />
-                        </div>
-                        <div className="text-left">
-                          <p className={`${item.textColor} font-black text-2xl tracking-tight mb-2`}>{item.title}</p>
-                          <p className={`${item.accentColor} font-bold text-sm`}>{item.description}</p>
+                        <div>
+                          <div className={`${item.color} w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-5 text-white shadow-lg ${item.shadow} group-hover:scale-105 transition-transform`}>
+                            <item.icon className="w-6 h-6 sm:w-7 sm:h-7" />
+                          </div>
+                          <div>
+                            <p className={`${item.textColor} font-black text-base sm:text-lg md:text-xl tracking-tight mb-1 leading-tight`}>{item.title}</p>
+                            <p className={`${item.accentColor} font-bold text-xs sm:text-sm line-clamp-2 leading-snug`}>{item.description}</p>
+                          </div>
                         </div>
                         
-                        <div className="mt-8 flex items-center gap-2 text-gray-950 dark:text-white font-black text-xs uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
-                          Open Menu <ArrowRight className="w-4 h-4" />
+                        <div className="mt-4 sm:mt-6 flex items-center gap-1.5 text-gray-950 dark:text-white font-black text-[11px] sm:text-xs uppercase tracking-wider opacity-80 group-hover:opacity-100 transition-all group-hover:translate-x-1">
+                          Open <ArrowRight className="w-3.5 h-3.5" />
                         </div>
                       </Link>
                     ) : 'onClick' in item ? (
                       <button 
                         onClick={item.onClick}
-                        className={`group block w-full p-10 ${item.bg} rounded-[2.5rem] border border-transparent hover:border-white hover:shadow-2xl transition-all relative overflow-hidden h-full text-left cursor-pointer`}
+                        className={`group flex flex-col justify-between w-full p-4 sm:p-6 md:p-7 ${item.bg} rounded-2xl sm:rounded-3xl border-2 border-transparent hover:border-orange-500/40 hover:shadow-2xl transition-all relative overflow-hidden h-full text-left cursor-pointer`}
                       >
-                        <div className={`${item.color} w-16 h-16 rounded-2xl flex items-center justify-center mb-8 text-white shadow-2xl ${item.shadow} group-hover:scale-110 transition-transform`}>
-                          <item.icon className="w-8 h-8" />
-                        </div>
                         <div>
-                          <p className={`${item.textColor} font-black text-2xl tracking-tight mb-2`}>{item.title}</p>
-                          <p className={`${item.accentColor} font-bold text-sm`}>{item.description}</p>
+                          <div className={`${item.color} w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-5 text-white shadow-lg ${item.shadow} group-hover:scale-105 transition-transform`}>
+                            <item.icon className="w-6 h-6 sm:w-7 sm:h-7" />
+                          </div>
+                          <div>
+                            <p className={`${item.textColor} font-black text-base sm:text-lg md:text-xl tracking-tight mb-1 leading-tight`}>{item.title}</p>
+                            <p className={`${item.accentColor} font-bold text-xs sm:text-sm line-clamp-2 leading-snug`}>{item.description}</p>
+                          </div>
                         </div>
                         
-                        <div className="mt-8 flex items-center gap-2 text-gray-950 dark:text-white font-black text-xs uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
-                          Open Settings <ArrowRight className="w-4 h-4" />
+                        <div className="mt-4 sm:mt-6 flex items-center gap-1.5 text-gray-950 dark:text-white font-black text-[11px] sm:text-xs uppercase tracking-wider opacity-80 group-hover:opacity-100 transition-all group-hover:translate-x-1">
+                          Open <ArrowRight className="w-3.5 h-3.5" />
                         </div>
                       </button>
                     ) : null}
@@ -331,29 +341,31 @@ function HomeDashboard() {
               </div>
             </div>
           </motion.div>
-  
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-gray-950 dark:bg-gray-900 border border-gray-800 rounded-[2.5rem] p-8 text-white flex items-center justify-between shadow-xl">
-              <div>
-                <p className="text-orange-400 font-black text-xs uppercase tracking-widest mb-2">Quick Tip</p>
-                <h4 className="text-xl font-black tracking-tight">Use &quot;Quick Add&quot; for items not in your inventory.</h4>
-              </div>
-              <div className="bg-white/10 p-4 rounded-2xl">
-                <ShoppingCart className="w-8 h-8 text-orange-400" />
-              </div>
+        </div>
+
+        {/* Footer Quick Status Cards */}
+        <div className="w-full mt-4 sm:mt-6 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          <div className="bg-gray-950 dark:bg-gray-900 border border-gray-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white flex items-center justify-between shadow-lg">
+            <div>
+              <p className="text-orange-400 font-black text-[10px] sm:text-xs uppercase tracking-widest mb-1">Quick Tip</p>
+              <h4 className="text-base sm:text-lg font-black tracking-tight">Use &quot;Quick Add&quot; for items not in your inventory.</h4>
             </div>
-            
-            <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 border border-gray-200 dark:border-gray-800 shadow-xl flex items-center justify-between transition-colors">
-              <div>
-                <p className="text-emerald-700 dark:text-emerald-400 font-black text-xs uppercase tracking-widest mb-2">Offline Ready</p>
-                <h4 className="text-xl font-black tracking-tight text-gray-950 dark:text-white">Your data is saved locally for offline use.</h4>
-              </div>
-              <div className="bg-green-50 dark:bg-emerald-950/50 p-4 rounded-2xl">
-                <Package className="w-8 h-8 text-green-600 dark:text-emerald-400" />
-              </div>
+            <div className="bg-white/10 p-3 sm:p-3.5 rounded-2xl shrink-0 ml-3">
+              <ShoppingCart className="w-6 h-6 sm:w-7 sm:h-7 text-orange-400" />
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-gray-200 dark:border-gray-800 shadow-lg flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-emerald-700 dark:text-emerald-400 font-black text-[10px] sm:text-xs uppercase tracking-widest mb-1">Offline Ready</p>
+              <h4 className="text-base sm:text-lg font-black tracking-tight text-gray-950 dark:text-white">Your data is saved locally and synced to Upstash Redis.</h4>
+            </div>
+            <div className="bg-green-50 dark:bg-emerald-950/50 p-3 sm:p-3.5 rounded-2xl shrink-0 ml-3">
+              <Package className="w-6 h-6 sm:w-7 sm:h-7 text-green-600 dark:text-emerald-400" />
             </div>
           </div>
         </div>
-      </main>
+      </div>
+    </main>
   );
 }

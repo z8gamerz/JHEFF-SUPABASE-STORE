@@ -546,7 +546,7 @@ export default function CreditReportPage() {
           <Header />
         </div>
 
-        <div className="flex-1 p-4 sm:p-6 md:p-10 max-w-7xl mx-auto w-full space-y-8">
+        <div className="flex-1 p-3 sm:p-6 lg:p-8 w-full space-y-6 sm:space-y-8">
           {/* Header Bar */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 print:hidden">
             <div className="flex items-center gap-4">

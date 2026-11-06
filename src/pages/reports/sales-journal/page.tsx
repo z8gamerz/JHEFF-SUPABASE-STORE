@@ -76,8 +76,8 @@ export default function SalesJournalPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
       <Header />
       
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto w-full">
+        <div className="w-full">
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-4">

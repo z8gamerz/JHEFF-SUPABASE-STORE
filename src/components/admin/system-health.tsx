@@ -25,9 +25,11 @@ import {
   Lock,
   Wifi,
   CloudLightning,
-  Radio
+  Radio,
+  Zap
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/modal';
+import { upstashRedis } from '@/lib/services/redis-service';
 
 export function SystemHealthDashboard() {
   const { user, isAdmin } = useAuth();
@@ -42,6 +44,53 @@ export function SystemHealthDashboard() {
   const [errorFeedback, setErrorFeedback] = useState<string | null>(null);
   const [pendingRestorePayload, setPendingRestorePayload] = useState<BackupPayload | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'errors' | 'auth'>('all');
+  const [redisTesting, setRedisTesting] = useState(false);
+  const [redisTestResult, setRedisTestResult] = useState<{
+    success: boolean;
+    ping: string;
+    latencyMs: number;
+    host: string;
+    message: string;
+    timestamp: number;
+  } | null>(null);
+
+  const handleTestRedis = async () => {
+    setRedisTesting(true);
+    try {
+      const res = await fetch('/api/utang-webhook?action=health');
+      const data = await res.json();
+      if (data.success) {
+        setRedisTestResult({
+          success: true,
+          ping: data.ping || 'PONG',
+          latencyMs: data.latencyMs || 0,
+          host: data.redisHost || 'proper-gull-192572.upstash.io',
+          message: 'Connected & Operational',
+          timestamp: Date.now()
+        });
+      } else {
+        setRedisTestResult({
+          success: false,
+          ping: 'FAILED',
+          latencyMs: 0,
+          host: 'proper-gull-192572.upstash.io',
+          message: data.error || 'Connection failed',
+          timestamp: Date.now()
+        });
+      }
+    } catch (e: any) {
+      setRedisTestResult({
+        success: false,
+        ping: 'ERROR',
+        latencyMs: 0,
+        host: 'proper-gull-192572.upstash.io',
+        message: e?.message || 'Network request failed',
+        timestamp: Date.now()
+      });
+    } finally {
+      setRedisTesting(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = realtimeSync.subscribeStatus((st) => setStreamStatus(st));
@@ -171,7 +220,7 @@ export function SystemHealthDashboard() {
       )}
 
       {/* KPI Overview Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Security & RLS */}
         <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -229,6 +278,51 @@ export function SystemHealthDashboard() {
               <CheckCircle2 className="w-3.5 h-3.5" /> Workbox PWA
             </span>
             <span>60fps Render</span>
+          </div>
+        </div>
+
+        {/* Upstash Redis Cloud DB */}
+        <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Upstash Redis DB</span>
+              <div className="p-2.5 bg-red-100 dark:bg-red-950/70 text-red-700 dark:text-red-400 rounded-xl">
+                <Database className="w-5 h-5" />
+              </div>
+            </div>
+            <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              {redisTestResult ? (redisTestResult.success ? `${redisTestResult.latencyMs}ms Latency` : 'Connection Error') : 'Cloud Connected'}
+            </h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title="proper-gull-192572.upstash.io">
+              proper-gull-192572.upstash.io
+            </p>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={handleTestRedis}
+              disabled={redisTesting}
+              className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {redisTesting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Testing Redis...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5" />
+                  Test Upstash Redis
+                </>
+              )}
+            </button>
+            {redisTestResult && (
+              <p className={`text-[10px] font-bold mt-2 text-center ${redisTestResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                {redisTestResult.success ? `✓ Ping: ${redisTestResult.ping} (${redisTestResult.latencyMs}ms)` : `✗ ${redisTestResult.message}`}
+              </p>
+            )}
           </div>
         </div>
       </div>

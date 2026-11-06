@@ -23,7 +23,7 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
-import { SECURE_PRODUCTION_RULES } from '../../../api/update-firebase-rules';
+import { SECURE_PRODUCTION_RULES } from '@/lib/constants/firebase-rules';
 
 export interface ScanResult {
   timestamp: number;

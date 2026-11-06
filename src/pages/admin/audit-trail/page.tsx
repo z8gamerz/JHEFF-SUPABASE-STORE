@@ -48,7 +48,7 @@ export default function AuditTrailPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors">
       <Header />
       
-      <div className="p-6 md:p-12 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-6 lg:p-8 w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div className="flex items-center gap-6">
             <Link 

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { RouterProvider, usePathname } from '@/lib/router-shim';
 import { ThemeProvider } from '@/lib/contexts/theme-context';
+import { DeviceProvider } from '@/lib/contexts/device-context';
 import { AuthProvider } from '@/lib/contexts/auth-context';
 import { ReceiptProvider } from '@/lib/context/receipt-context';
 import { StoreProvider } from '@/lib/hooks/use-store';
@@ -83,22 +84,24 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <RouterProvider>
-          <AuthProvider>
-            <StoreProvider>
-              <ReceiptProvider>
-                <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
-                  <Suspense fallback={<PageLoader />}>
-                    <AppContent />
-                  </Suspense>
-                  <OfflineIndicator />
-                </div>
-              </ReceiptProvider>
-            </StoreProvider>
-          </AuthProvider>
-        </RouterProvider>
-      </ThemeProvider>
+      <DeviceProvider>
+        <ThemeProvider>
+          <RouterProvider>
+            <AuthProvider>
+              <StoreProvider>
+                <ReceiptProvider>
+                  <div className="min-h-screen w-full flex flex-col bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+                    <Suspense fallback={<PageLoader />}>
+                      <AppContent />
+                    </Suspense>
+                    <OfflineIndicator />
+                  </div>
+                </ReceiptProvider>
+              </StoreProvider>
+            </AuthProvider>
+          </RouterProvider>
+        </ThemeProvider>
+      </DeviceProvider>
     </ErrorBoundary>
   );
 }
