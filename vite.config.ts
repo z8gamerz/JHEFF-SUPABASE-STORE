@@ -145,6 +145,47 @@ function smtpApiPlugin() {
           return;
         }
 
+        if (url === '/api/utang-webhook') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const handlerModule = await import('./api/utang-webhook.js').catch(() => import('./api/utang-webhook.ts' as any));
+              const handler = handlerModule.default;
+              
+              const mockRes: any = {
+                statusCode: 200,
+                status(code: number) {
+                  this.statusCode = code;
+                  res.statusCode = code;
+                  return this;
+                },
+                setHeader(name: string, value: string) {
+                  res.setHeader(name, value);
+                  return this;
+                },
+                json(data: any) {
+                  res.statusCode = this.statusCode || 200;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify(data));
+                  return this;
+                },
+                end() {
+                  res.end();
+                  return this;
+                }
+              };
+
+              const parsedBody = body ? JSON.parse(body) : {};
+              await handler({ ...req, body: parsedBody }, mockRes);
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err?.message || 'Server error' }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     },

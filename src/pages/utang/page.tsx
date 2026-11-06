@@ -7,7 +7,8 @@ import { Header } from '@/components/layout/header';
 import { CustomerForm } from '@/components/utang/customer-form';
 import { CreditHistory } from '@/components/utang/credit-history';
 import { RecordTransaction } from '@/components/utang/record-transaction';
-import { Plus, Search, User, Phone, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, UserPlus, ShieldAlert, Loader2, FileText, CheckCircle2, Wallet, AlertCircle, RefreshCw, SlidersHorizontal, Scale, X } from 'lucide-react';
+import { Plus, Search, User, Phone, ArrowLeft, History, ArrowUpRight, ArrowDownLeft, Trash2, Edit2, UserPlus, ShieldAlert, Loader2, FileText, CheckCircle2, Wallet, AlertCircle, RefreshCw, SlidersHorizontal, Scale, X, LayoutGrid, Table as TableIcon, Database } from 'lucide-react';
+import { TabulatedUtangLedger } from '@/components/utang/tabulated-utang-ledger';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,6 +23,7 @@ export default function UtangPage() {
   const [isRefreshingBalances, setIsRefreshingBalances] = useState(false);
   const { isCashier, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [balanceFilter, setBalanceFilter] = useState<'all' | 'outstanding' | 'fully_paid'>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -206,9 +208,56 @@ export default function UtangPage() {
               </button>
             </div>
           </div>
-  
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+
+          {/* View Mode Switcher */}
+          <div className="flex items-center bg-gray-200/80 dark:bg-gray-800 p-1.5 rounded-2xl mb-8 w-fit border border-gray-300 dark:border-gray-700 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <TableIcon className="w-4 h-4" />
+              <span>Strict Tabulated Ledger (Table)</span>
+              <span className="text-[10px] bg-red-800 text-white px-2 py-0.5 rounded-full font-mono flex items-center gap-1">
+                <Database className="w-3 h-3" />
+                Upstash Redis
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-xs'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Customer Cards View</span>
+            </button>
+          </div>
+
+          {viewMode === 'table' ? (
+            <TabulatedUtangLedger
+              customers={customers}
+              onSelectCustomer={(c) => setHistoryCustomer(c)}
+              onRefresh={refresh}
+              onDeleteEntry={deleteCreditEntry}
+              onAdjustBalance={(c) => {
+                setAdjustTargetCustomer(c);
+                const isAiAi = c.name.toLowerCase().includes('ai');
+                setAdjustTargetAmount(isAiAi ? '400' : String(Number(c.totalUtang) || 0));
+                setAdjustNote(isAiAi ? 'Settled prior period (Balance set to 400)' : 'Balance Alignment');
+              }}
+            />
+          ) : (
+            <>
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div 
               onClick={() => setBalanceFilter('outstanding')}
               className={`p-5 rounded-3xl border transition-all cursor-pointer ${
@@ -448,6 +497,8 @@ export default function UtangPage() {
                 </motion.div>
               ))}
             </div>
+          )}
+            </>
           )}
         </div>
   

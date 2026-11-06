@@ -3,6 +3,7 @@
 import { BaseService } from './base-service';
 import { Customer, CreditEntry, STORES, dbUtil } from '@/lib/db/idb';
 import { syncDb } from '@/lib/db/sync-queue';
+import { upstashRedis } from './redis-service';
 
 class CustomerService extends BaseService<Customer> {
   constructor() {
@@ -130,6 +131,13 @@ class CustomerService extends BaseService<Customer> {
     
     await syncDb.add(STORES.CREDIT_LOG, newEntry);
 
+    // Auto-push directly to Upstash Redis DB via Webhook helper in background
+    this.getById(entry.customerId).then((cust) => {
+      upstashRedis.pushUtangRecord(newEntry, cust || undefined).catch((e) => {
+        console.warn('[CustomerService] Upstash Redis background push skipped:', e);
+      });
+    }).catch(() => {});
+
     // Automatically recalculate and synchronize customer's totalUtang with the exact ledger entries
     return await this.recalculateCustomerBalance(entry.customerId);
   }
@@ -209,6 +217,7 @@ class CustomerService extends BaseService<Customer> {
     };
 
     await syncDb.add(STORES.CREDIT_LOG, entry);
+    upstashRedis.pushUtangRecord(entry, customer).catch(() => {});
     return await this.recalculateCustomerBalance(customerId);
   }
 }

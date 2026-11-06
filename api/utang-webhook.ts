@@ -1,13 +1,20 @@
 import { Redis } from '@upstash/redis';
 
-// Upstash Redis Configuration with environment fallback
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || 
-  process.env.VITE_UPSTASH_REDIS_REST_URL || 
-  'https://proper-gull-192572.upstash.io';
+function cleanEnv(val?: string, fallback: string = ''): string {
+  if (!val) return fallback;
+  return String(val).replace(/^["'\s]+|["'\s]+$/g, '').trim() || fallback;
+}
 
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || 
-  process.env.VITE_UPSTASH_REDIS_REST_TOKEN || 
-  'gQAAAAAAAvA8AAIgcDIxMjExNWU2ZTczZDg0ZmIxOWZjZTJkNWM0MzQyNTM2Mg';
+// Upstash Redis Configuration with environment fallback and quote stripping
+const REDIS_URL = cleanEnv(
+  process.env.UPSTASH_REDIS_REST_URL || process.env.VITE_UPSTASH_REDIS_REST_URL,
+  'https://proper-gull-192572.upstash.io'
+);
+
+const REDIS_TOKEN = cleanEnv(
+  process.env.UPSTASH_REDIS_REST_TOKEN || process.env.VITE_UPSTASH_REDIS_REST_TOKEN,
+  'gQAAAAAAAvA8AAIgcDIxMjExNWU2ZTczZDg0ZmIxOWZjZTJkNWM0MzQyNTM2Mg'
+);
 
 function getRedisClient(): Redis {
   return new Redis({
