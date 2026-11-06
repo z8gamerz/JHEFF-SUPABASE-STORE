@@ -154,6 +154,14 @@ class CustomerService extends BaseService<Customer> {
     };
     await syncDb.update(STORES.CREDIT_LOG, updatedEntry);
 
+    // Auto-sync deletion to Upstash Redis in background
+    upstashRedis.pushUtangRecord(updatedEntry).catch(() => {});
+    fetch('/api/utang-webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_record', entryId, customerId: target.customerId })
+    }).catch(() => {});
+
     // Recalculate customer totalUtang
     await this.recalculateCustomerBalance(target.customerId);
   }
@@ -181,6 +189,9 @@ class CustomerService extends BaseService<Customer> {
       isDeleted: false,
     };
     await syncDb.add(STORES.CREDIT_LOG, clearanceEntry);
+
+    // Auto-sync clearance entry to Upstash Redis in background
+    upstashRedis.pushUtangRecord(clearanceEntry, customer).catch(() => {});
 
     // Reconcile to zero
     await this.recalculateCustomerBalance(customerId);
@@ -219,6 +230,57 @@ class CustomerService extends BaseService<Customer> {
     await syncDb.add(STORES.CREDIT_LOG, entry);
     upstashRedis.pushUtangRecord(entry, customer).catch(() => {});
     return await this.recalculateCustomerBalance(customerId);
+  }
+
+  /**
+   * Passive background synchronization with Upstash Redis.
+   * Auto pulls any remote ledger entries and auto pushes any missing local entries.
+   * Runs completely passively in the background without user intervention.
+   */
+  async passiveSyncWithRedis(): Promise<{ pulled: number; pushed: number }> {
+    try {
+      const { entries: redisEntries } = await upstashRedis.pullAllUtang();
+      const localCredits = await dbUtil.getItems<CreditEntry>(STORES.CREDIT_LOG);
+      const localMap = new Map<string, CreditEntry>();
+      for (const item of localCredits) {
+        localMap.set(item.id, item);
+      }
+
+      let pulled = 0;
+      // If Redis has entries not yet in local DB, or with newer timestamp -> merge into local DB
+      for (const rItem of redisEntries) {
+        if (!rItem || !rItem.id) continue;
+        const local = localMap.get(rItem.id);
+        if (!local) {
+          await syncDb.add(STORES.CREDIT_LOG, rItem);
+          pulled++;
+        } else if (rItem.updatedAt && local.updatedAt && rItem.updatedAt > local.updatedAt) {
+          await syncDb.update(STORES.CREDIT_LOG, rItem);
+          pulled++;
+        }
+      }
+
+      // Any local active entries missing from Redis -> passively push
+      const redisIdSet = new Set(redisEntries.map(e => e?.id).filter(Boolean));
+      let pushed = 0;
+      const missingInRedis = localCredits.filter(l => !l.isDeleted && !redisIdSet.has(l.id));
+      if (missingInRedis.length > 0) {
+        const customers = await this.getAll();
+        const res = await upstashRedis.syncAllToRedis(missingInRedis, customers).catch(() => ({ success: false, count: 0 }));
+        if (res && res.success) {
+          pushed = res.count;
+        }
+      }
+
+      if (pulled > 0) {
+        await this.recalculateAllCustomerBalances();
+      }
+
+      return { pulled, pushed };
+    } catch (err) {
+      console.debug('[CustomerService] Passive Redis auto-sync deferred:', err);
+      return { pulled: 0, pushed: 0 };
+    }
   }
 }
 

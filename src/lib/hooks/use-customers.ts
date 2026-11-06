@@ -32,6 +32,13 @@ export function useCustomers(branchId?: string) {
   useEffect(() => {
     fetchCustomers();
 
+    // Passively auto sync with Upstash Redis in the background (no button click needed)
+    customerService.passiveSyncWithRedis().then((res) => {
+      if (res && res.pulled > 0) {
+        fetchCustomers();
+      }
+    }).catch(() => {});
+
     const unsubscribe = realtimeSync.subscribe([STORES.CUSTOMERS, STORES.CREDIT_LOG], () => {
       fetchCustomers();
     });
