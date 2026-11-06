@@ -20,15 +20,17 @@ export const SECURE_PRODUCTION_RULES = {
       }
     },
 
-    // 4. Products & Stock Inventory - Read-only for guests, authenticated-only writes
+    // 4. Products & Stock Inventory - Read-only for guests, authenticated-only writes.
+    // Supports standard items (pc) and weight-based products (kg, g, etc.) with decimal stock & unit definitions.
     products: {
       ".read": true,
       "$productId": {
-        ".write": "auth != null && newData.hasChildren(['name', 'price']) && newData.child('price').isNumber() && newData.child('price').val() >= 0"
+        ".write": "auth != null && newData.hasChildren(['name', 'price']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && (!newData.hasChild('stock') || newData.child('stock').isNumber()) && (!newData.hasChild('isWeightBased') || newData.child('isWeightBased').isBoolean()) && (!newData.hasChild('unit') || newData.child('unit').isString())"
       }
     },
 
-    // 5. Sales Transactions - Append-only, cannot be deleted or modified
+    // 5. Sales Transactions - Append-only, cannot be deleted or modified.
+    // Supports decimal quantities for weight-based items (e.g. 1.25 kg)
     transactions: {
       ".read": true,
       "$txnId": {

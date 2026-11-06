@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product } from '@/lib/db/idb';
-import { Edit2, Trash2, Package, AlertCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, Trash2, Package, AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Scale } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface ProductListProps {
@@ -66,9 +66,17 @@ export function ProductList({ products, lowStockThreshold = 10, onEdit, onDelete
             >
               <div>
                 <div className="flex justify-between items-start gap-2 mb-3">
-                  <span className="bg-orange-100 dark:bg-orange-950/80 text-orange-900 dark:text-orange-200 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md line-clamp-1 border border-orange-200 dark:border-orange-800">
-                    {product.category}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="bg-orange-100 dark:bg-orange-950/80 text-orange-900 dark:text-orange-200 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md line-clamp-1 border border-orange-200 dark:border-orange-800">
+                      {product.category}
+                    </span>
+                    {product.isWeightBased && (
+                      <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 text-[10px] font-black uppercase tracking-wider px-1.5 py-1 rounded-md border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                        <Scale className="w-3 h-3 stroke-[2.5]" />
+                        <span>Weight</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity shrink-0">
                     {onEdit && (
                       <button
@@ -96,9 +104,14 @@ export function ProductList({ products, lowStockThreshold = 10, onEdit, onDelete
                 <h4 className="text-base font-black text-gray-950 dark:text-white mb-1.5 line-clamp-2 leading-tight">
                   {product.name}
                 </h4>
-                <p className="text-xl font-black text-orange-600 dark:text-orange-400 mb-3">
-                  ₱{product.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                </p>
+                <div className="flex items-baseline gap-1 mb-3">
+                  <p className="text-xl font-black text-orange-600 dark:text-orange-400">
+                    ₱{product.price.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </p>
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                    / {product.unit || 'pc'}
+                  </span>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-gray-100 dark:border-gray-800 mt-2 space-y-2.5">
@@ -118,13 +131,13 @@ export function ProductList({ products, lowStockThreshold = 10, onEdit, onDelete
                         ? 'text-amber-800 dark:text-amber-300'
                         : 'text-gray-800 dark:text-gray-200'
                     }`}>
-                      {product.stock} in stock
+                      {product.stock} {product.unit || 'in stock'}
                     </span>
                   </div>
 
                   {product.minStock !== undefined && product.minStock > 0 && (
                     <span className="text-[10px] font-extrabold text-gray-600 dark:text-gray-400" title="Custom threshold for this item">
-                      Min: {product.minStock}
+                      Min: {product.minStock} {product.unit || ''}
                     </span>
                   )}
                 </div>

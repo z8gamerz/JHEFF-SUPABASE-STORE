@@ -91,9 +91,10 @@ export function useRestocking() {
     for (const item of items) {
       const product = await productService.getById(item.productId);
       if (product) {
+        const nextStock = Math.round((product.stock + item.quantity) * 1000) / 1000;
         const updatedProduct = {
           ...product,
-          stock: product.stock + item.quantity,
+          stock: nextStock,
           updatedAt: now
         };
         await productService.update(updatedProduct);

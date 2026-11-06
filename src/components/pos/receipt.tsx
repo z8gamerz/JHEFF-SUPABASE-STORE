@@ -85,16 +85,33 @@ const SalesItems = ({ items }: { items: any[] }) => (
   <div className="space-y-2 mb-4">
     <div className="flex justify-between font-bold text-[10px] uppercase">
       <span className="w-1/2">Item</span>
-      <span className="w-1/4 text-center">Qty</span>
+      <span className="w-1/4 text-center">Qty / Wt</span>
       <span className="w-1/4 text-right">Price</span>
     </div>
-    {items.map((item, i) => (
-      <div key={i} className="flex justify-between items-start">
-        <span className="w-1/2 break-words">{item.name}</span>
-        <span className="w-1/4 text-center">x{(item.quantity || item.qty)}</span>
-        <span className="w-1/4 text-right">₱{(item.price * (item.quantity || item.qty)).toFixed(2)}</span>
-      </div>
-    ))}
+    {items.map((item, i) => {
+      const qty = item.quantity !== undefined ? item.quantity : (item.qty || 1);
+      const isWeight = item.isWeightBased || (item.unit && item.unit !== 'pc');
+      const unitLabel = item.unit ? (item.unit === 'pc' ? 'pc' : item.unit) : '';
+
+      return (
+        <div key={i} className="flex justify-between items-start text-[11px]">
+          <div className="w-1/2 break-words pr-1">
+            <span className="font-bold">{item.name}</span>
+            {isWeight && (
+              <span className="block text-[9px] opacity-75">
+                @ ₱{Number(item.price).toFixed(2)}/{item.unit || 'kg'}
+              </span>
+            )}
+          </div>
+          <span className="w-1/4 text-center font-bold">
+            {qty}{unitLabel ? ` ${unitLabel}` : ''}
+          </span>
+          <span className="w-1/4 text-right font-bold">
+            ₱{(item.price * qty).toFixed(2)}
+          </span>
+        </div>
+      );
+    })}
   </div>
 );
 

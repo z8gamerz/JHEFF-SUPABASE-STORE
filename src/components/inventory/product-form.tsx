@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Product } from '@/lib/db/idb';
-import { X, Save, Package, Tag, Hash, Coins, MapPin, AlertTriangle } from 'lucide-react';
+import { X, Save, Package, Tag, Hash, Coins, MapPin, AlertTriangle, Scale } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useBranches } from '@/lib/hooks/use-branches';
@@ -24,6 +24,8 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
     category: '',
     barcode: '',
     branchId: '',
+    unit: 'pc',
+    isWeightBased: false,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -38,9 +40,17 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
         category: product.category,
         barcode: product.barcode || '',
         branchId: product.branchId,
+        unit: product.unit || (product.isWeightBased ? 'kg' : 'pc'),
+        isWeightBased: Boolean(product.isWeightBased),
       });
     } else if (currentBranchId) {
-      setFormData(prev => ({ ...prev, branchId: currentBranchId, minStock: '' }));
+      setFormData(prev => ({ 
+        ...prev, 
+        branchId: currentBranchId, 
+        minStock: '',
+        unit: 'pc',
+        isWeightBased: false,
+      }));
     }
   }, [product, currentBranchId]);
 
@@ -52,12 +62,20 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
     }
     setIsSaving(true);
     try {
+      const isWeight = Boolean(formData.isWeightBased);
+      const parsedStock = isWeight ? parseFloat(formData.stock) || 0 : parseFloat(formData.stock) || 0;
+      const parsedMinStock = formData.minStock 
+        ? (isWeight ? parseFloat(formData.minStock) : parseFloat(formData.minStock)) 
+        : undefined;
+
       const data = {
         ...formData,
-        price: parseFloat(formData.price),
+        price: parseFloat(formData.price) || 0,
         cost: parseFloat(formData.cost) || 0,
-        stock: parseInt(formData.stock),
-        minStock: formData.minStock ? parseInt(formData.minStock, 10) : undefined,
+        stock: parsedStock,
+        minStock: parsedMinStock,
+        isWeightBased: isWeight,
+        unit: formData.unit || (isWeight ? 'kg' : 'pc'),
       };
       if (product?.id) {
         await onSave({ ...data, id: product.id, createdAt: product.createdAt });
@@ -145,7 +163,43 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Weight-Based Product Toggle */}
+            <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-2xl border-2 border-orange-200 dark:border-orange-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-orange-500 text-white rounded-xl shadow-xs">
+                  <Scale className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase text-gray-950 dark:text-white tracking-wider">
+                    Weight-Based Item (Timbangan)
+                  </h4>
+                  <p className="text-[11px] text-gray-600 dark:text-gray-300 font-medium">
+                    Sold by kg, g, or decimal quantities (e.g. bigas, karne, gulay)
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={formData.isWeightBased}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      isWeightBased: checked,
+                      unit: checked && prev.unit === 'pc' ? 'kg' : (!checked && prev.unit === 'kg' ? 'pc' : prev.unit)
+                    }));
+                  }}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orange-600"></div>
+                <span className="ml-2.5 text-xs font-black uppercase text-gray-900 dark:text-white">
+                  {formData.isWeightBased ? 'Weight-Based' : 'Standard'}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
                   Category *
@@ -157,6 +211,9 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                   className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all cursor-pointer shadow-xs"
                 >
                   <option value="">Select...</option>
+                  <option value="Rice & Grains">Rice & Grains (Bigas)</option>
+                  <option value="Meat & Poultry">Meat & Poultry</option>
+                  <option value="Produce">Produce / Fruits & Veg</option>
                   <option value="Drinks">Drinks</option>
                   <option value="Snacks">Snacks</option>
                   <option value="Canned Goods">Canned Goods</option>
@@ -164,6 +221,34 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                   <option value="Others">Others</option>
                 </select>
               </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
+                  <Scale className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 stroke-[2.5]" /> Unit of Measure *
+                </label>
+                <select
+                  required
+                  value={formData.unit}
+                  onChange={(e) => {
+                    const u = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      unit: u,
+                      isWeightBased: u === 'kg' || u === 'g' ? true : formData.isWeightBased
+                    });
+                  }}
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all cursor-pointer shadow-xs"
+                >
+                  <option value="pc">Piece (pc)</option>
+                  <option value="kg">Kilogram (kg)</option>
+                  <option value="g">Gram (g)</option>
+                  <option value="pack">Pack / Pouch</option>
+                  <option value="liter">Liter (L)</option>
+                  <option value="meter">Meter (m)</option>
+                  <option value="box">Box</option>
+                </select>
+              </div>
+
               <div>
                 <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
                   <MapPin className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 stroke-[2.5]" /> Branch *
@@ -185,14 +270,15 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
-                  <Hash className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[2.5]" /> Stock Qty *
+                  <Hash className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 stroke-[2.5]" /> Stock ({formData.unit || 'qty'}) *
                 </label>
                 <input
                   type="number"
+                  step={formData.isWeightBased ? "any" : "1"}
                   required
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  placeholder="0"
+                  placeholder={formData.isWeightBased ? "e.g. 50.5" : "0"}
                   className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>
@@ -202,9 +288,10 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
                 </label>
                 <input
                   type="number"
+                  step={formData.isWeightBased ? "any" : "1"}
                   value={formData.minStock}
                   onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
-                  placeholder="e.g. 10"
+                  placeholder={formData.isWeightBased ? "e.g. 5.0" : "e.g. 10"}
                   className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>

@@ -14,7 +14,7 @@ export function useCart() {
       if (existing) {
         return prev.map((item) =>
           item.productId === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: Math.round((item.quantity + 1) * 1000) / 1000 }
             : item
         );
       }
@@ -26,6 +26,8 @@ export function useCart() {
           price: product.price,
           costPrice: product.cost || 0,
           quantity: 1,
+          unit: product.unit || (product.isWeightBased ? 'kg' : 'pc'),
+          isWeightBased: Boolean(product.isWeightBased),
         },
       ];
     });
@@ -38,17 +40,19 @@ export function useCart() {
   const updateQuantity = useCallback((productId: string, delta: number) => {
     setCart((prev) =>
       prev
-        .map((item) =>
-          item.productId === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item
-        )
+        .map((item) => {
+          if (item.productId === productId) {
+            const nextQty = Math.round((item.quantity + delta) * 1000) / 1000;
+            return { ...item, quantity: Math.max(0, nextQty) };
+          }
+          return item;
+        })
         .filter((item) => item.quantity > 0)
     );
   }, []);
 
   const setItemQuantity = useCallback((productId: string, quantity: number) => {
-    const validQty = Math.max(0, Math.floor(quantity));
+    const validQty = Math.max(0, Math.round(quantity * 1000) / 1000);
     setCart((prev) =>
       prev
         .map((item) =>

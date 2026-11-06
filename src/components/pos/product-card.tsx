@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Product } from '@/lib/db/idb';
-import { Plus } from 'lucide-react';
+import { Plus, Scale } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -36,18 +36,29 @@ export const ProductCard = React.memo(function ProductCard({ product, onAdd }: P
       <div className="flex-1 min-w-0 w-full">
         {/* Badges container with auto-fit flex */}
         <div className="flex items-center justify-between mb-2 gap-1.5 min-w-0">
-          <span 
-            title={product.category}
-            className="text-[9px] sm:text-[10px] font-black text-orange-950 dark:text-orange-200 uppercase tracking-wider bg-orange-100 dark:bg-orange-950/90 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border border-orange-300 dark:border-orange-800 truncate max-w-[95px] sm:max-w-[120px] shrink"
-          >
-            {product.category}
-          </span>
+          <div className="flex items-center gap-1 min-w-0 truncate">
+            <span 
+              title={product.category}
+              className="text-[9px] sm:text-[10px] font-black text-orange-950 dark:text-orange-200 uppercase tracking-wider bg-orange-100 dark:bg-orange-950/90 px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border border-orange-300 dark:border-orange-800 truncate max-w-[80px] sm:max-w-[100px] shrink"
+            >
+              {product.category}
+            </span>
+            {product.isWeightBased && (
+              <span 
+                title="Weight-based item"
+                className="text-[9px] sm:text-[10px] font-black text-amber-950 dark:text-amber-200 uppercase bg-amber-100 dark:bg-amber-950/90 px-1.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg border border-amber-300 dark:border-amber-800 flex items-center gap-0.5 shrink-0"
+              >
+                <Scale className="w-2.5 h-2.5 stroke-[2.5]" />
+                <span className="hidden xs:inline sm:inline">KG</span>
+              </span>
+            )}
+          </div>
           <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border shrink-0 ${
             product.stock > 10 
               ? 'bg-emerald-100 dark:bg-emerald-950/90 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800' 
               : 'bg-rose-100 dark:bg-rose-950/90 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
           }`}>
-            {product.stock} IN STOCK
+            {product.stock} {product.unit ? (product.unit === 'pc' ? 'IN STOCK' : product.unit) : 'IN STOCK'}
           </span>
         </div>
         
@@ -59,11 +70,14 @@ export const ProductCard = React.memo(function ProductCard({ product, onAdd }: P
           {product.name}
         </h4>
         
-        {/* Auto-fit price display */}
-        <div className="flex items-baseline gap-1 mt-2 min-w-0">
+        {/* Auto-fit price display with unit */}
+        <div className="flex items-baseline gap-1 mt-2 min-w-0 flex-wrap">
           <span className="text-xs sm:text-sm font-black text-gray-800 dark:text-gray-200 shrink-0">₱</span>
           <span className={`${priceFontSize} font-black text-gray-950 dark:text-white tracking-tight truncate min-w-0`}>
             {formattedPrice}
+          </span>
+          <span className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 shrink-0">
+            / {product.unit || 'pc'}
           </span>
         </div>
       </div>

@@ -132,7 +132,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                           ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
                           : 'bg-rose-100 dark:bg-rose-950 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
                       }`}>
-                        Current Stock: {product.stock}
+                        Current Stock: {product.stock} {product.unit || ''}
                       </span>
                     </div>
                     <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors border border-indigo-200 dark:border-indigo-800">
@@ -184,7 +184,7 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                   <thead>
                     <tr className="text-left">
                       <th className="px-3 py-1.5 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider">Product</th>
-                      <th className="px-3 py-1.5 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider w-24 text-center">Qty</th>
+                      <th className="px-3 py-1.5 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider w-24 text-center">Qty / Wt</th>
                       <th className="px-3 py-1.5 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider w-32">Cost / Unit</th>
                       <th className="px-3 py-1.5 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider w-32 text-right">Subtotal</th>
                       <th className="px-3 py-1.5 w-10"></th>
@@ -208,9 +208,10 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                           <td className="px-3 py-3">
                             <input
                               type="number"
-                              min="1"
+                              step="any"
+                              min="0.001"
                               value={item.quantity}
-                              onChange={(e) => updateItem(item.productId, 'quantity', parseInt(e.target.value) || 0)}
+                              onChange={(e) => updateItem(item.productId, 'quantity', parseFloat(e.target.value) || 0)}
                               className="w-full bg-gray-50 dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-600 text-gray-950 dark:text-white rounded-xl px-2.5 py-1.5 text-center font-black text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none"
                             />
                           </td>

@@ -230,9 +230,10 @@ export default function POSPage() {
       for (const item of cart) {
         const product = products.find(p => p.id === item.productId);
         if (product) {
+          const nextStock = Math.max(0, Math.round((product.stock - item.quantity) * 1000) / 1000);
           await updateProduct({
             ...product,
-            stock: Math.max(0, product.stock - item.quantity),
+            stock: nextStock,
             updatedAt: now,
           });
         }

@@ -33,6 +33,8 @@ export type Product = {
   category: string;
   branchId: string; // Reference to Branch
   barcode?: string;
+  isWeightBased?: boolean; // Supports weight-based products (e.g. sold by kg/g)
+  unit?: 'pc' | 'kg' | 'g' | 'pack' | 'liter' | string; // Measurement unit
   createdAt: number;
   updatedAt: number;
   isDeleted?: boolean;
@@ -43,7 +45,9 @@ export type TransactionItem = {
   name: string;
   price: number;
   costPrice: number; // Added for profit tracking (cost at time of sale)
-  quantity: number;
+  quantity: number; // Decimal quantity for weight-based products (e.g. 1.25 kg)
+  unit?: string;
+  isWeightBased?: boolean;
 };
 
 export type Transaction = {
