@@ -58,7 +58,7 @@ class CustomerService extends BaseService<Customer> {
         totalUtang: finalBalance,
         updatedAt: Date.now(),
       };
-      await this.update(updatedCustomer);
+      await dbUtil.updateItem(STORES.CUSTOMERS, updatedCustomer);
     }
     return finalBalance;
   }
@@ -73,7 +73,7 @@ class CustomerService extends BaseService<Customer> {
       if (staleAiAiEntry) {
         staleAiAiEntry.isDeleted = true;
         staleAiAiEntry.updatedAt = Date.now();
-        await syncDb.update(STORES.CREDIT_LOG, staleAiAiEntry);
+        await dbUtil.updateItem(STORES.CREDIT_LOG, staleAiAiEntry);
       }
 
       const customerMap = new Map<string, CreditEntry[]>();
@@ -100,7 +100,7 @@ class CustomerService extends BaseService<Customer> {
         const currentUtang = Number(customer.totalUtang);
 
         if (isNaN(currentUtang) || Math.abs(currentUtang - finalBalance) > 0.001) {
-          await this.update({
+          await dbUtil.updateItem(STORES.CUSTOMERS, {
             ...customer,
             totalUtang: finalBalance,
             updatedAt: Date.now(),

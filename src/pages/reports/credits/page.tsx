@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { useBranches } from '@/lib/hooks/use-branches';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { customerService } from '@/lib/services/customer-service';
-import { Customer, CreditEntry } from '@/lib/db/idb';
+import { Customer, CreditEntry, STORES } from '@/lib/db/idb';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 import { computeCreditCrossMatch, CrossMatchResult, MatchedCredit } from '@/lib/utils/credit-matcher';
 import { Header } from '@/components/layout/header';
 import { AuthGuard } from '@/components/auth/auth-guard';
@@ -30,7 +31,8 @@ import {
   TrendingUp,
   FileSpreadsheet,
   PieChart,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/modal';
 import Link from 'next/link';
@@ -95,9 +97,11 @@ export default function CreditReportPage() {
     }
   }, [isCashier, authLoading, router]);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Load data
-  const fetchData = async () => {
-    setLoadingData(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoadingData(true);
     try {
       const branchIdParam = selectedBranchId === 'all' ? undefined : selectedBranchId;
       const [custList, entriesList] = await Promise.all([
@@ -109,12 +113,26 @@ export default function CreditReportPage() {
     } catch (err) {
       console.error('Failed to load credit report data:', err);
     } finally {
-      setLoadingData(false);
+      if (!silent) setLoadingData(false);
     }
   };
 
   useEffect(() => {
     fetchData();
+
+    // Debounced realtime auto refresh whenever credit entries or customers change
+    let debounceTimer: any = null;
+    const unsubscribe = realtimeSync.subscribe([STORES.CUSTOMERS, STORES.CREDIT_LOG], () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchData(true);
+      }, 350);
+    });
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubscribe();
+    };
   }, [selectedBranchId]);
 
   // Date filtering cutoff with custom date range support
@@ -573,6 +591,23 @@ export default function CreditReportPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsRefreshing(true);
+                  try {
+                    await fetchData(true);
+                  } finally {
+                    setIsRefreshing(false);
+                  }
+                }}
+                disabled={isRefreshing}
+                className="px-5 py-3 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-bold rounded-2xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+                title="Refresh Report Data"
+              >
+                <RefreshCw className={`w-4 h-4 text-purple-600 dark:text-purple-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
               <Link
                 href="/utang"
                 className="px-5 py-3 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 font-bold rounded-2xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-xs transition-all active:scale-95"

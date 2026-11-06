@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Customer, CreditEntry, STORES } from '@/lib/db/idb';
 import { customerService } from '@/lib/services/customer-service';
 import { realtimeSync } from '@/lib/db/realtime-sync';
@@ -8,13 +8,14 @@ import { realtimeSync } from '@/lib/db/realtime-sync';
 export function useCustomers(branchId?: string) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const isInitialMount = useRef(true);
 
-  const fetchCustomers = useCallback(async () => {
-    setLoading(true);
+  const fetchCustomers = useCallback(async (silent = false) => {
+    // Only show full-screen loader on initial mount if we don't have cached data yet
+    if (!silent && isInitialMount.current) {
+      setLoading(true);
+    }
     try {
-      // Auto-reconcile all balances on load to fix any drift
-      await customerService.recalculateAllCustomerBalances();
-
       let data: Customer[];
       if (branchId) {
         data = await customerService.getByBranch(branchId);
@@ -25,25 +26,42 @@ export function useCustomers(branchId?: string) {
     } catch (error) {
       console.error('Failed to fetch customers:', error);
     } finally {
-      setLoading(false);
+      if (isInitialMount.current) {
+        setLoading(false);
+        isInitialMount.current = false;
+      }
     }
   }, [branchId]);
 
   useEffect(() => {
-    fetchCustomers();
+    // Initial load
+    fetchCustomers(false);
 
-    // Passively auto sync with Upstash Redis in the background (no button click needed)
+    // Initial balance alignment in background (silent, no loading flash)
+    customerService.recalculateAllCustomerBalances().then(() => {
+      fetchCustomers(true);
+    }).catch(() => {});
+
+    // Passively auto sync with Upstash Redis in the background
     customerService.passiveSyncWithRedis().then((res) => {
       if (res && res.pulled > 0) {
-        fetchCustomers();
+        fetchCustomers(true);
       }
     }).catch(() => {});
 
+    // Debounced realtime auto refresh on credit log or customer updates
+    let debounceTimer: any = null;
     const unsubscribe = realtimeSync.subscribe([STORES.CUSTOMERS, STORES.CREDIT_LOG], () => {
-      fetchCustomers();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchCustomers(true);
+      }, 300);
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubscribe();
+    };
   }, [fetchCustomers]);
 
   const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt' | 'totalUtang' | 'branchId' | 'isDeleted'>): Promise<Customer> => {
@@ -59,18 +77,18 @@ export function useCustomers(branchId?: string) {
       updatedAt: now,
     };
     await customerService.create(newCustomer);
-    await fetchCustomers();
+    await fetchCustomers(true);
     return newCustomer;
   };
 
   const updateCustomer = async (customer: Customer) => {
     await customerService.update(customer);
-    await fetchCustomers();
+    await fetchCustomers(true);
   };
 
   const deleteCustomer = async (id: string) => {
     await customerService.delete(id);
-    await fetchCustomers();
+    await fetchCustomers(true);
   };
 
   const recordCredit = async (
@@ -116,7 +134,7 @@ export function useCustomers(branchId?: string) {
 
     // recordCredit atomically stores the entry and recalculates customer's totalUtang from the ledger
     await customerService.recordCredit(entry);
-    await fetchCustomers();
+    await fetchCustomers(true);
   };
 
   const getCreditHistory = async (customerId: string) => {
@@ -126,17 +144,17 @@ export function useCustomers(branchId?: string) {
 
   const deleteCreditEntry = async (entryId: string) => {
     await customerService.deleteCreditEntry(entryId);
-    await fetchCustomers();
+    await fetchCustomers(true);
   };
 
   const clearCustomerBalance = async (customerId: string, note?: string) => {
     await customerService.clearCustomerBalance(customerId, note);
-    await fetchCustomers();
+    await fetchCustomers(true);
   };
 
   const adjustCustomerBalance = async (customerId: string, targetBalance: number, note?: string) => {
     await customerService.adjustCustomerBalance(customerId, targetBalance, note);
-    await fetchCustomers();
+    await fetchCustomers(true);
   };
 
   const getAllCreditLogs = async () => {
@@ -156,6 +174,9 @@ export function useCustomers(branchId?: string) {
     clearCustomerBalance,
     adjustCustomerBalance,
     getAllCreditLogs,
-    refresh: fetchCustomers,
+    refresh: async () => {
+      await customerService.recalculateAllCustomerBalances();
+      await fetchCustomers(true);
+    },
   };
 }
