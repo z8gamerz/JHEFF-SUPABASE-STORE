@@ -10,10 +10,10 @@ function smtpApiPlugin() {
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url?.split('?')[0];
-        if (url === '/api/test-smtp' || url === '/api/send-report-email') {
+        if (url === '/api/test-smtp' || url === '/api/send-report-email' || url === '/api/utang-webhook') {
           res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
           if (req.method === 'OPTIONS') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true }));
