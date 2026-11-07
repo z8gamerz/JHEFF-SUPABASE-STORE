@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { metadataService } from '@/lib/services/metadata-service';
 import { auditService } from '@/lib/services/audit-service';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { apiFetch } from '@/lib/api-client';
 import { 
   Mail, 
   KeyRound, 
@@ -22,7 +23,7 @@ import {
 export function EmailSettings() {
   const { user } = useAuth();
   const [senderEmail, setSenderEmail] = useState('');
-  const [appPassword, setAppPassword] = useState('');
+  const [appPassword, setAppPassword] = useState(''); // not persisted; used only for explicit test when server env is not configured
   const [defaultRecipient, setDefaultRecipient] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -36,26 +37,22 @@ export function EmailSettings() {
     message: string;
   } | null>(null);
 
-  // Load existing credentials on mount
   useEffect(() => {
     async function loadEmailConfig() {
       try {
-        const [senderEntry, passEntry, recipientEntry] = await Promise.all([
+        const [senderEntry, recipientEntry] = await Promise.all([
           metadataService.get('email_smtp_sender'),
-          metadataService.get('email_smtp_password'),
           metadataService.get('email_default_recipient'),
         ]);
-
         if (senderEntry?.value) setSenderEmail(senderEntry.value);
-        if (passEntry?.value) setAppPassword(passEntry.value);
         if (recipientEntry?.value) setDefaultRecipient(recipientEntry.value);
+        // Never load persisted app passwords; configure SMTP_APP_PASSWORD on the server.
       } catch (err) {
         console.error('Failed to load email SMTP settings:', err);
       } finally {
         setIsLoading(false);
       }
     }
-
     loadEmailConfig();
   }, []);
 
@@ -67,16 +64,17 @@ export function EmailSettings() {
     try {
       await Promise.all([
         metadataService.set('email_smtp_sender', senderEmail.trim()),
-        metadataService.set('email_smtp_password', appPassword.trim()),
         metadataService.set('email_default_recipient', defaultRecipient.trim()),
       ]);
+      // Do NOT persist app passwords in browser storage or cloud-synced metadata.
+      // Configure SMTP_SENDER_EMAIL / SMTP_APP_PASSWORD in server environment.
 
       await auditService.log(
         'EMAIL_CONFIG_UPDATED',
         JSON.stringify({
           senderEmail: senderEmail.trim(),
           defaultRecipient: defaultRecipient.trim(),
-          hasPassword: !!appPassword,
+          passwordStoredLocally: false,
         }),
         user?.name || 'Administrator'
       );
@@ -91,54 +89,34 @@ export function EmailSettings() {
   };
 
   const handleTestConnection = async () => {
-    if (!senderEmail || !appPassword) {
-      setTestResult({
-        success: false,
-        message: 'Please provide both Gmail address and App Password before testing.',
-      });
-      return;
-    }
-
     setIsTesting(true);
     setTestResult(null);
 
     try {
-      const response = await fetch('/api/test-smtp', {
+      // If appPassword is provided, test that explicit credential once (server-side). Otherwise test server-configured SMTP.
+      const body: any = appPassword.trim()
+        ? { senderEmail: senderEmail.trim(), appPassword: appPassword.trim() }
+        : {};
+      const response = await apiFetch('/api/test-smtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderEmail: senderEmail.trim(),
-          appPassword: appPassword.trim(),
-        }),
+        body: JSON.stringify(body),
       });
 
       const responseText = await response.text();
       let data: any = null;
-      try {
-        data = responseText ? JSON.parse(responseText) : null;
-      } catch {
-        console.error('Non-JSON response from /api/test-smtp:', responseText);
-      }
+      try { data = responseText ? JSON.parse(responseText) : null; } catch {}
 
       if (response.ok && data?.success) {
-        setTestResult({
-          success: true,
-          message: 'Connection successful! Your Google App Password is authenticated and ready to dispatch reports.',
-        });
+        setTestResult({ success: true, message: data?.message || 'SMTP connection verified.' });
       } else {
-        const fallbackMsg = response.status === 404 || response.status === 405
-          ? `Serverless endpoint not found (${response.status}). Verify Vercel /api deployment.`
-          : 'Authentication failed. Please verify your Google App Password and ensure 2-Step Verification is active.';
         setTestResult({
           success: false,
-          message: data?.error || fallbackMsg,
+          message: data?.error || `Authentication failed (HTTP ${response.status}). Configure SMTP_APP_PASSWORD on the server or enter a test password (not saved).`,
         });
       }
     } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err?.message || 'Network error occurred while testing SMTP connection.',
-      });
+      setTestResult({ success: false, message: err?.message || 'Network error occurred while testing SMTP connection.' });
     } finally {
       setIsTesting(false);
     }
@@ -152,7 +130,7 @@ export function EmailSettings() {
     );
   }
 
-  const isConfigured = Boolean(senderEmail && appPassword);
+  const isConfigured = Boolean(senderEmail);
 
   return (
     <div className="space-y-8">
@@ -190,9 +168,9 @@ export function EmailSettings() {
         <div className="mt-6 p-5 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-blue-900 dark:text-blue-300 font-medium leading-relaxed">
-              <strong className="font-bold">Need a Google App Password?</strong> Go to your Google Account security settings, enable 2-Step Verification, and generate an <strong>App Password</strong> under the &quot;App passwords&quot; section. Paste the 16-character code below.
-            </div>
+              <div className="text-xs text-blue-900 dark:text-blue-300 font-medium leading-relaxed">
+                <strong className="font-bold">Security:</strong> App passwords are <strong>not saved</strong> in this app and are never synced to cloud metadata. Configure <code>SMTP_SENDER_EMAIL</code> and <code>SMTP_APP_PASSWORD</code> in your server environment for production. You may enter a password below only to test the connection (it is not stored).
+              </div>
           </div>
           <a
             href="https://myaccount.google.com/apppasswords"
@@ -232,16 +210,15 @@ export function EmailSettings() {
             {/* App Password */}
             <div className="space-y-2">
               <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 ml-3">
-                Google App Password
+                Google App Password (test only, not saved)
               </label>
               <div className="relative">
                 <KeyRound className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  required
                   value={appPassword}
                   onChange={(e) => setAppPassword(e.target.value)}
-                  placeholder="xxxx xxxx xxxx xxxx"
+                  placeholder="xxxx xxxx xxxx xxxx (not saved)"
                   className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl pl-14 pr-12 py-4 font-bold text-gray-950 dark:text-white focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-900/30 transition-all outline-none text-sm"
                 />
                 <button
@@ -253,7 +230,7 @@ export function EmailSettings() {
                 </button>
               </div>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 ml-3 font-medium">
-                16-character password generated specifically for this POS app.
+                16-character password for one-time SMTP test only. It is cleared from the form context by not persisting; do not store secrets in the browser.
               </p>
             </div>
 
@@ -300,7 +277,7 @@ export function EmailSettings() {
               <button
                 type="button"
                 onClick={handleTestConnection}
-                disabled={isTesting || !senderEmail || !appPassword}
+                disabled={isTesting}
                 className="w-full sm:w-auto px-6 py-3.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isTesting ? (
@@ -337,3 +314,4 @@ export function EmailSettings() {
     </div>
   );
 }
+

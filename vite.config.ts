@@ -11,7 +11,9 @@ function smtpApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url?.split('?')[0];
         if (url === '/api/test-smtp' || url === '/api/send-report-email' || url === '/api/utang-webhook') {
-          res.setHeader('Access-Control-Allow-Origin', '*');
+          const origin = req.headers?.origin || 'http://localhost:3000';
+          res.setHeader('Access-Control-Allow-Origin', origin);
+          res.setHeader('Vary', 'Origin');
           res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
           if (req.method === 'OPTIONS') {

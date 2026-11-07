@@ -37,6 +37,7 @@ import {
   createCustomMonSunRange 
 } from '@/lib/utils/weekly-date';
 import { generateReportEmailData } from '@/lib/utils/report-email-formatter';
+import { apiFetch } from '@/lib/api-client';
 
 interface EmailReportModalProps {
   isOpen: boolean;
@@ -62,9 +63,8 @@ export function EmailReportModal({
   const { user } = useAuth();
   const { store } = useStore();
 
-  // SMTP credentials from settings
+  // SMTP: server-configured by default. Client never loads/persists app passwords.
   const [senderEmail, setSenderEmail] = useState('');
-  const [appPassword, setAppPassword] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [hasLoadedCredentials, setHasLoadedCredentials] = useState(false);
   const [creditEntries, setCreditEntries] = useState<CreditEntry[]>([]);
@@ -84,21 +84,16 @@ export function EmailReportModal({
   const [sendSuccess, setSendSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Load stored credentials and credit entries
   useEffect(() => {
     if (!isOpen) return;
-
     async function loadConfigAndEntries() {
       try {
-        const [senderEntry, passEntry, recipientEntry, cEntries] = await Promise.all([
+        const [senderEntry, recipientEntry, cEntries] = await Promise.all([
           metadataService.get('email_smtp_sender'),
-          metadataService.get('email_smtp_password'),
           metadataService.get('email_default_recipient'),
           customerService.getAllCreditEntries(selectedBranchId === 'all' ? undefined : selectedBranchId),
         ]);
-
         if (senderEntry?.value) setSenderEmail(senderEntry.value);
-        if (passEntry?.value) setAppPassword(passEntry.value);
         if (recipientEntry?.value) setRecipientEmail(recipientEntry.value);
         if (cEntries) setCreditEntries(cEntries);
       } catch (err) {
@@ -107,10 +102,7 @@ export function EmailReportModal({
         setHasLoadedCredentials(true);
       }
     }
-
     loadConfigAndEntries();
-
-    // Default custom inputs to last week Monday and Sunday
     const lastWeek = getLastWeekMonSun();
     setCustomStart(lastWeek.startFormatted);
     setCustomEnd(lastWeek.endFormatted);
@@ -166,7 +158,8 @@ export function EmailReportModal({
     includeCreditReport,
   ]);
 
-  const isCredentialsReady = Boolean(senderEmail && appPassword);
+  // SMTP is server-configured (SMTP_APP_PASSWORD). Recipient/default sender are display/config only.
+  const smtpServerConfigured = true;
   const isAnyReportSelected = includeDailySummary || includeSalesJournal || includeCreditReport;
 
   const handleDownloadCSVs = () => {
@@ -189,12 +182,6 @@ export function EmailReportModal({
       setErrorMessage('Please enter a valid recipient email address.');
       return;
     }
-
-    if (!isCredentialsReady) {
-      setErrorMessage('Google Gmail and App Password must be configured first in Settings.');
-      return;
-    }
-
     if (!isAnyReportSelected) {
       setErrorMessage('Please select at least one report to include.');
       return;
@@ -204,12 +191,9 @@ export function EmailReportModal({
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/send-report-email', {
+      const response = await apiFetch('/api/send-report-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderEmail: senderEmail.trim(),
-          appPassword: appPassword.trim(),
           recipientEmail: recipientEmail.trim(),
           subject: generatedData.subject,
           htmlBody: generatedData.htmlBody,
@@ -291,26 +275,10 @@ export function EmailReportModal({
 
         {/* Modal Body */}
         <div className="p-6 md:p-8 space-y-6 max-h-[75vh] overflow-y-auto">
-          {/* Missing Credentials Alert */}
-          {!isCredentialsReady && hasLoadedCredentials && (
-            <div className="p-5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/60 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-black text-amber-900 dark:text-amber-200">Gmail Credentials Not Set</h4>
-                  <p className="text-xs text-amber-800/80 dark:text-amber-300/80 font-medium mt-0.5 leading-relaxed">
-                    Provide your Google email and 16-character App Password in Settings before sending email reports.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/settings"
-                onClick={onClose}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 shadow-xs"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                Go to Settings
-              </Link>
+          {/* SMTP server status */}
+          {hasLoadedCredentials && (
+            <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/50 text-xs text-blue-900 dark:text-blue-200 font-medium">
+              Email is sent using server-configured SMTP (<code>SMTP_SENDER_EMAIL</code>/<code>SMTP_APP_PASSWORD</code>). Passwords are never stored in the browser.
             </div>
           )}
 
@@ -673,7 +641,7 @@ export function EmailReportModal({
             <button
               type="button"
               onClick={handleSendEmail}
-              disabled={isSending || !isCredentialsReady || !isAnyReportSelected}
+              disabled={isSending || !smtpServerConfigured || !isAnyReportSelected}
               className="bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-black px-8 py-3.5 rounded-2xl flex items-center gap-2 text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-all cursor-pointer border-none disabled:opacity-40"
             >
               {isSending ? (

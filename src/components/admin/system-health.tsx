@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { apiFetch, getPosApiKey, setPosApiKey } from '@/lib/api-client';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { backupService, BackupPayload } from '@/lib/services/backup-service';
 import { auditService } from '@/lib/services/audit-service';
@@ -45,6 +46,7 @@ export function SystemHealthDashboard() {
   const [pendingRestorePayload, setPendingRestorePayload] = useState<BackupPayload | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'errors' | 'auth'>('all');
   const [redisTesting, setRedisTesting] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState(() => (typeof window !== 'undefined' ? getPosApiKey() : ''));
   const [redisTestResult, setRedisTestResult] = useState<{
     success: boolean;
     ping: string;
@@ -57,14 +59,14 @@ export function SystemHealthDashboard() {
   const handleTestRedis = async () => {
     setRedisTesting(true);
     try {
-      const res = await fetch('/api/utang-webhook?action=health');
-      const data = await res.json();
+      const res = await apiFetch('/api/utang-webhook?action=health');
+      const data = await res.json().catch(() => ({}));
       if (data.success) {
         setRedisTestResult({
           success: true,
           ping: data.ping || 'PONG',
           latencyMs: data.latencyMs || 0,
-          host: data.redisHost || 'proper-gull-192572.upstash.io',
+          host: data.redisHost || 'server-configured',
           message: 'Connected & Operational',
           timestamp: Date.now()
         });
@@ -73,7 +75,7 @@ export function SystemHealthDashboard() {
           success: false,
           ping: 'FAILED',
           latencyMs: 0,
-          host: 'proper-gull-192572.upstash.io',
+          host: data.redisHost || 'server-configured',
           message: data.error || 'Connection failed',
           timestamp: Date.now()
         });
@@ -83,7 +85,7 @@ export function SystemHealthDashboard() {
         success: false,
         ping: 'ERROR',
         latencyMs: 0,
-        host: 'proper-gull-192572.upstash.io',
+        host: 'server-configured',
         message: e?.message || 'Network request failed',
         timestamp: Date.now()
       });
@@ -294,12 +296,24 @@ export function SystemHealthDashboard() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               {redisTestResult ? (redisTestResult.success ? `${redisTestResult.latencyMs}ms Latency` : 'Connection Error') : 'Cloud Connected'}
             </h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title="proper-gull-192572.upstash.io">
-              proper-gull-192572.upstash.io
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title="server-configured">
+              server-configured
             </p>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
+            {isAdmin && (
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="POS API key (server POS_API_SECRET)"
+                  className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-[11px] font-semibold text-gray-900 dark:text-white"
+                />
+                <button type="button" onClick={() => setPosApiKey(apiKeyInput)} className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-xl text-[11px] font-black">Save</button>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleTestRedis}

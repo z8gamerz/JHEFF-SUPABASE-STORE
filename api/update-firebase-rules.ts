@@ -1,3 +1,5 @@
+import { applyCors, requireEnv, requireApiAuth, rateLimit, clampBodySize } from './_security';
+
 async function parseBody(req: any): Promise<any> {
   if (req.body) {
     if (typeof req.body === 'string') {
@@ -43,11 +45,12 @@ async function parseBody(req: any): Promise<any> {
 function isAllowedFirebaseUrl(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr);
-    return parsed.protocol === 'https:' && 
-      (parsed.hostname.endsWith('.firebasedatabase.app') || parsed.hostname.endsWith('.firebaseio.com'));
-  } catch {
-    return false;
-  }
+    return parsed.protocol === 'https:' && (parsed.hostname.endsWith('.firebasedatabase.app') || parsed.hostname.endsWith('.firebaseio.com'));
+  } catch { return false; }
+}
+
+function getFirebaseSecret(): string {
+  return requireEnv('FIREBASE_DATABASE_SECRET');
 }
 
 export const SECURE_PRODUCTION_RULES = {
@@ -151,15 +154,10 @@ export const SECURE_PRODUCTION_RULES = {
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
-  }
+  if (!applyCors(req, res, 'GET, POST, OPTIONS', 'Content-Type, Authorization, X-POS-API-Key')) return;
+  if (req.method === 'OPTIONS') return res.status(200).json({ success: true });
+  if (!rateLimit(req, res, { key: 'update-firebase-rules', limit: 20, windowMs: 60 * 60_000 })) return;
+  if (!requireApiAuth(req, res)) return;
 
   const defaultUrl = process.env.VITE_FIREBASE_RTDB_URL || 
     'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
@@ -222,26 +220,25 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // POST: Programmatically apply secure production rules
+  // POST: Programmatically apply secure production rules (server-side secret only)
   if (req.method === 'POST') {
     try {
       const body = await parseBody(req);
-      const secret = (body?.secret || process.env.FIREBASE_DATABASE_SECRET || process.env.VITE_FIREBASE_AUTH_TOKEN || '').trim();
-      const inputUrl = (body?.databaseUrl || defaultUrl).trim().replace(/\/$/, '');
-      if (!isAllowedFirebaseUrl(inputUrl)) {
+      const secret = getFirebaseSecret();
+      const baseUrl = defaultUrl.replace(/\/$/, '');
+      if (!isAllowedFirebaseUrl(baseUrl)) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid database URL. Only official Google Firebase Realtime Database URLs (*.firebasedatabase.app) are allowed.'
+          error: 'Invalid database URL. Only official Firebase Realtime Database URLs are allowed.'
         });
       }
-      const baseUrl = inputUrl;
       const rulesToApply = body?.rules || SECURE_PRODUCTION_RULES;
 
       if (!secret) {
-        return res.status(400).json({
+        return res.status(503).json({
           success: false,
           requiresSecret: true,
-          error: 'Firebase Database Secret is required to programmatically update rules via REST API. You can find this in Firebase Console -> Project Settings -> Service accounts -> Database secrets.'
+          error: 'Server is not configured with FIREBASE_DATABASE_SECRET.'
         });
       }
 
@@ -277,3 +274,6 @@ export default async function handler(req: any, res: any) {
 
   return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 }
+
+
+

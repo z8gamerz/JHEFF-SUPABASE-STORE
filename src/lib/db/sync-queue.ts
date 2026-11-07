@@ -14,14 +14,17 @@ import { realtimeSync } from './realtime-sync';
  */
 
 function getRtdbUrl(): string {
-  return ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 
-    'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
+  const url = (import.meta as any).env?.VITE_FIREBASE_RTDB_URL;
+  if (typeof url !== 'string' || !url.trim()) {
+    throw new Error('VITE_FIREBASE_RTDB_URL is not configured.');
+  }
+  return url.replace(/\/$/, '');
 }
 
 export function getAuthQuery(): string {
   if (typeof window === 'undefined') return '';
-  const token = localStorage.getItem('pos_firebase_auth_token') || 
-                (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || '';
+  // Per-device token only (set by admin in app settings/local storage). Do not read VITE_* secrets into client behavior.
+  const token = localStorage.getItem('pos_firebase_auth_token') || '';
   return token ? `?auth=${encodeURIComponent(token.trim())}` : '';
 }
 
@@ -283,7 +286,6 @@ export async function pullSync(): Promise<void> {
     STORES.TRANSACTIONS,
     STORES.CUSTOMERS,
     STORES.CREDIT_LOG,
-    STORES.METADATA,
     STORES.EWALLET_TRANSACTIONS,
     STORES.SUPPLIERS,
     STORES.RESTOCK_TRANSACTIONS,
@@ -391,8 +393,6 @@ export async function clearDatabaseAll(): Promise<void> {
     STORES.SUPPLIERS,
     STORES.RESTOCK_TRANSACTIONS,
     STORES.AUDIT_LOGS,
-    STORES.METADATA,
-    STORES.SYNC_QUEUE,
     STORES.EXPENSES
   ];
 
@@ -447,3 +447,5 @@ if (typeof window !== 'undefined') {
     realtimeSync.start();
   });
 }
+
+

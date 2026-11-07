@@ -1,4 +1,17 @@
 import nodemailer from 'nodemailer';
+import { applyCors, requireEnv, requireApiAuth, rateLimit, clampBodySize } from './_security';
+
+function getSmtpAuth(body: any): { user: string; pass: string } | null {
+  // Prefer server-configured credentials; fall back to request only when server env is unset.
+  const envUser = requireEnv('SMTP_SENDER_EMAIL', 'GMAIL_SENDER_EMAIL');
+  const envPass = requireEnv('SMTP_APP_PASSWORD', 'GMAIL_APP_PASSWORD');
+  if (envUser && envPass) return { user: envUser.trim(), pass: envPass.replace(/\s+/g, '') };
+
+  const senderEmail = typeof body?.senderEmail === 'string' ? body.senderEmail.trim() : '';
+  const appPassword = typeof body?.appPassword === 'string' ? body.appPassword : '';
+  if (!senderEmail || !appPassword) return null;
+  return { user: senderEmail, pass: appPassword.replace(/\s+/g, '') };
+}
 
 async function parseBody(req: any): Promise<any> {
   if (req.body) {
@@ -44,64 +57,63 @@ async function parseBody(req: any): Promise<any> {
 }
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-  }
+  if (!applyCors(req, res, 'POST, OPTIONS', 'Content-Type, Authorization, X-POS-API-Key')) return;
+  if (req.method === 'OPTIONS') return res.status(200).json({ success: true });
+  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  if (!rateLimit(req, res, { key: 'send-report-email', limit: 10, windowMs: 60 * 60_000 })) return;
+  if (!requireApiAuth(req, res)) return;
 
   try {
     const body = await parseBody(req);
-    const { senderEmail, appPassword, recipientEmail, subject, htmlBody, attachments } = body || {};
+    if (!clampBodySize(body, 5_000_000)) {
+      return res.status(413).json({ success: false, error: 'Request body too large.' });
+    }
+    const { recipientEmail, subject, htmlBody, attachments } = body || {};
+    const auth = getSmtpAuth(body);
 
-    if (!senderEmail || !appPassword || !recipientEmail) {
+    if (!auth || !recipientEmail) {
       return res.status(400).json({
         success: false,
-        error: 'Sender email, Google App Password, and Recipient email are required.'
+        error: 'SMTP credentials (server env or request) and recipient email are required.'
       });
     }
+
+    const to = String(recipientEmail).trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      return res.status(400).json({ success: false, error: 'Invalid recipient email.' });
+    }
+    const safeAttachments = Array.isArray(attachments) ? attachments.slice(0, 10) : [];
 
     const mailer: any = (nodemailer as any)?.default || nodemailer;
     const createTransport = mailer.createTransport || (nodemailer as any).createTransport;
 
     const transporter = createTransport({
       service: 'gmail',
-      auth: {
-        user: senderEmail.trim(),
-        pass: appPassword.replace(/\s+/g, ''),
-      },
+      auth,
       connectionTimeout: 10000,
       greetingTimeout: 8000,
       socketTimeout: 12000,
     });
 
     const mailOptions: any = {
-      from: `"${senderEmail}" <${senderEmail.trim()}>`,
-      to: recipientEmail.trim(),
-      subject: subject || 'Weekly Business Report',
+      from: `"POS Report" <${auth.user}>`,
+      to,
+      subject: String(subject || 'Weekly Business Report').slice(0, 200),
       html: htmlBody,
-      attachments: (attachments || []).map((att: any) => ({
-        filename: att.filename,
-        content: att.content,
-        contentType: att.contentType || 'text/csv',
+      attachments: safeAttachments.map((att: any) => ({
+        filename: String(att?.filename || 'report.csv').slice(0, 120),
+        content: att?.content,
+        contentType: att?.contentType || 'text/csv',
       })),
     };
 
     const info = await transporter.sendMail(mailOptions);
     return res.status(200).json({ success: true, messageId: info.messageId });
   } catch (err: any) {
-    console.error('[API Send Report Email Error]:', err);
+    console.error('[API Send Report Email Error]:', err?.message || err);
     return res.status(500).json({
       success: false,
-      error: err?.message || 'Failed to send email. Please check your Gmail App Password and network connection.'
+      error: 'Failed to send email. Check SMTP configuration and network connection.'
     });
   }
 }

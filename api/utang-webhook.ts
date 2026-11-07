@@ -1,26 +1,25 @@
 import { Redis } from '@upstash/redis';
+import { applyCors, requireEnv, requireApiAuth, rateLimit, clampBodySize } from './_security';
 
-function cleanEnv(val?: string, fallback: string = ''): string {
-  if (!val) return fallback;
-  return String(val).replace(/^["'\s]+|["'\s]+$/g, '').trim() || fallback;
+function cleanEnv(val?: string): string {
+  if (!val) return '';
+  return String(val).replace(/^["'\s]+|["'\s]+$/g, '').trim();
 }
 
-// Upstash Redis Configuration with environment fallback and quote stripping
-const REDIS_URL = cleanEnv(
-  process.env.UPSTASH_REDIS_REST_URL || process.env.VITE_UPSTASH_REDIS_REST_URL,
-  'https://proper-gull-192572.upstash.io'
-);
-
-const REDIS_TOKEN = cleanEnv(
-  process.env.UPSTASH_REDIS_REST_TOKEN || process.env.VITE_UPSTASH_REDIS_REST_TOKEN,
-  'gQAAAAAAAvA8AAIgcDIxMjExNWU2ZTczZDg0ZmIxOWZjZTJkNWM0MzQyNTM2Mg'
-);
+function getRedisConfig(): { url: string; token: string } | null {
+  const url = cleanEnv(requireEnv('UPSTASH_REDIS_REST_URL'));
+  const token = cleanEnv(requireEnv('UPSTASH_REDIS_REST_TOKEN'));
+  // Never use VITE_* or hardcoded fallbacks: secrets must stay server-side.
+  if (!url || !token) return null;
+  return { url, token };
+}
 
 function getRedisClient(): Redis {
-  return new Redis({
-    url: REDIS_URL,
-    token: REDIS_TOKEN,
-  });
+  const cfg = getRedisConfig();
+  if (!cfg) {
+    throw new Error('Redis is not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN on the server.');
+  }
+  return new Redis({ url: cfg.url, token: cfg.token });
 }
 
 async function parseBody(req: any): Promise<any> {
@@ -66,16 +65,18 @@ async function parseBody(req: any): Promise<any> {
 }
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  if (!applyCors(req, res, 'GET, POST, OPTIONS', 'Content-Type, Authorization, X-POS-API-Key')) return;
+  if (req.method === 'OPTIONS') return res.status(200).json({ success: true });
+  if (!rateLimit(req, res, { key: 'utang-webhook', limit: 120, windowMs: 60_000 })) return;
+  if (!requireApiAuth(req, res)) return;
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
+  const cfg = getRedisConfig();
+  if (!cfg) {
+    return res.status(503).json({
+      success: false,
+      error: 'Server Redis configuration missing. Configure UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.',
+    });
   }
-
   const redis = getRedisClient();
 
   // 1. GET Requests: Pull out tabulated Utang records or check health
@@ -95,7 +96,7 @@ export default async function handler(req: any, res: any) {
           status: 'connected',
           ping: pingRes,
           latencyMs: latency,
-          redisHost: new URL(REDIS_URL).hostname,
+          redisHost: new URL(cfg.url).hostname,
           timestamp: Date.now()
         });
       }
@@ -162,7 +163,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         success: true,
         source: 'Upstash Redis',
-        redisHost: new URL(REDIS_URL).hostname,
+        redisHost: new URL(cfg.url).hostname,
         summary: {
           totalEntries: entries.length,
           activeRecords: activeCount,
@@ -186,6 +187,9 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
     try {
       const body = await parseBody(req);
+      if (!clampBodySize(body, 1_000_000)) {
+        return res.status(413).json({ success: false, error: 'Request body too large.' });
+      }
       const { action = 'push_record', entry, customer, entries, customers, note } = body;
 
       // Single Record Push

@@ -10,6 +10,16 @@ export type MetadataEntry = {
   isDeleted?: boolean;
 };
 
+const SENSITIVE_METADATA_KEYS = new Set([
+  'email_smtp_password',
+  'firebase_database_secret',
+  'upstash_redis_rest_token',
+]);
+
+export function isSensitiveMetadataKey(key: string): boolean {
+  return SENSITIVE_METADATA_KEYS.has(key);
+}
+
 class MetadataService {
   private storeName = STORES.METADATA;
 
@@ -19,7 +29,7 @@ class MetadataService {
     return item;
   }
 
-  async set(key: string, value: string): Promise<string> {
+  async set(key: string, value: string): Promise<string | number> {
     const now = Date.now();
     const entry: MetadataEntry = {
       key,
@@ -27,15 +37,22 @@ class MetadataService {
       updatedAt: now,
       isDeleted: false,
     };
-    
-    // We use syncDb to ensure metadata is also synced if needed
-    // Note: syncDb might need to handle 'key' as keyPath if it's not 'id'
+
+    // Sensitive values are stored locally only and never cloud-synced.
+    if (isSensitiveMetadataKey(key)) {
+      return await dbUtil.updateItem(this.storeName, entry);
+    }
     return await syncDb.update(this.storeName, entry);
   }
 
   async delete(key: string): Promise<void> {
+    if (isSensitiveMetadataKey(key)) {
+      await dbUtil.deleteItem(this.storeName, key);
+      return;
+    }
     await syncDb.delete(this.storeName, key);
   }
 }
 
 export const metadataService = new MetadataService();
+
