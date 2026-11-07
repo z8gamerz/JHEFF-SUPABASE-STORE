@@ -45,109 +45,56 @@ interface ReceiptProps {
   onClose: () => void;
 }
 
-const ReceiptHeader = ({ store, branch, ticketNumber, orNumber, timestamp, type, cashierName }: any) => {
-  const settings = store?.receiptSettings;
-  const storeName = settings?.headerTitle || store?.name || 'Sari-Sari POS';
-  const tagline = settings?.tagline;
-  const address = settings?.address || store?.address;
-  const phone = settings?.phone;
-  const tin = settings?.tin || store?.tin;
-  const permit = settings?.permitNumber;
-  const headerGreeting = settings?.headerGreeting;
-  const disclaimer = settings?.disclaimer || (type === 'sales' ? 'Sales Receipt' : 'E-Wallet Receipt');
-
-  const showAddress = settings?.showAddress ?? true;
-  const showPhone = settings?.showPhone ?? true;
-  const showTin = settings?.showTin ?? true;
-  const showDateTime = settings?.showDateTime ?? true;
-  const showCashier = settings?.showCashier ?? true;
-
-  return (
-    <div className="text-center">
-      <h2 className="text-base sm:text-lg font-bold uppercase tracking-tight leading-tight">{storeName}</h2>
-      {tagline && <p className="text-[10px] italic font-medium opacity-80 mt-0.5">{tagline}</p>}
-      {showAddress && address && <p className="text-[10px] font-bold leading-tight mt-0.5">{address}</p>}
-      {showPhone && phone && <p className="text-[10px] font-medium leading-tight">Tel: {phone}</p>}
-      {showTin && tin && <p className="text-[10px] font-bold leading-tight">TIN: {tin}</p>}
-      {permit && <p className="text-[9px] font-medium opacity-75">Permit #: {permit}</p>}
-      {branch?.name && branch.name !== 'Main Branch' && <p className="text-[10px] font-bold leading-tight mt-0.5">{branch.name}</p>}
-      {headerGreeting && (
-        <p className="text-[9px] font-medium opacity-80 mt-1 italic border-y border-dotted border-black/30 py-0.5">
-          {headerGreeting}
-        </p>
-      )}
-      <div className="border-t border-dashed border-black my-2.5" />
-      
-      <div className="space-y-0.5 mb-3 text-left text-[10px]">
-        <div className="flex justify-between">
-          <span>Ticket:</span>
-          <span className="font-bold">{ticketNumber}</span>
-        </div>
-        {orNumber && (
-          <div className="flex justify-between">
-            <span>OR Number:</span>
-            <span className="font-bold">{orNumber}</span>
-          </div>
-        )}
-        {showDateTime && (
-          <>
-            <div className="flex justify-between">
-              <span>Date:</span>
-              <span>{format(timestamp, 'MMM dd, yyyy')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Time:</span>
-              <span>{format(timestamp, 'hh:mm a')}</span>
-            </div>
-          </>
-        )}
-        {showCashier && cashierName && (
-          <div className="flex justify-between">
-            <span>Cashier:</span>
-            <span className="font-bold">{cashierName}</span>
-          </div>
-        )}
-        <div className="flex justify-between">
-          <span>Type:</span>
-          <span className="uppercase font-bold">{disclaimer}</span>
-        </div>
+const ReceiptHeader = ({ store, branch, ticketNumber, orNumber, timestamp, type }: any) => (
+  <div className="text-center">
+    <h2 className="text-lg font-bold uppercase tracking-tighter leading-tight">{store?.name || 'Sari-Sari POS'}</h2>
+    {store?.address && <p className="text-[10px] font-bold leading-tight">{store.address}</p>}
+    {store?.tin && <p className="text-[10px] font-bold leading-tight">TIN: {store.tin}</p>}
+    {branch?.name && branch.name !== 'Main Branch' && <p className="text-[10px] font-bold leading-tight">{branch.name}</p>}
+    <div className="border-t border-dashed border-black my-3" />
+    
+    <div className="space-y-0.5 mb-4 text-left text-[10px]">
+      <div className="flex justify-between">
+        <span>Ticket:</span>
+        <span className="font-bold">{ticketNumber}</span>
       </div>
-      <div className="border-t border-dashed border-black my-2.5" />
+      {orNumber && (
+        <div className="flex justify-between">
+          <span>OR Number:</span>
+          <span className="font-bold">{orNumber}</span>
+        </div>
+      )}
+      <div className="flex justify-between">
+        <span>Date:</span>
+        <span>{format(timestamp, 'MMM dd, yyyy')}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Time:</span>
+        <span>{format(timestamp, 'hh:mm a')}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Type:</span>
+        <span className="uppercase font-bold">{type === 'sales' ? 'Sales Receipt' : 'E-Wallet Receipt'}</span>
+      </div>
     </div>
-  );
-};
+    <div className="border-t border-dashed border-black my-3" />
+  </div>
+);
 
 const SalesItems = ({ items }: { items: any[] }) => (
   <div className="space-y-2 mb-4">
     <div className="flex justify-between font-bold text-[10px] uppercase">
       <span className="w-1/2">Item</span>
-      <span className="w-1/4 text-center">Qty / Wt</span>
+      <span className="w-1/4 text-center">Qty</span>
       <span className="w-1/4 text-right">Price</span>
     </div>
-    {items.map((item, i) => {
-      const qty = item.quantity !== undefined ? item.quantity : (item.qty || 1);
-      const isWeight = item.isWeightBased || (item.unit && item.unit !== 'pc');
-      const unitLabel = item.unit ? (item.unit === 'pc' ? 'pc' : item.unit) : '';
-
-      return (
-        <div key={i} className="flex justify-between items-start text-[11px]">
-          <div className="w-1/2 break-words pr-1">
-            <span className="font-bold">{item.name}</span>
-            {isWeight && (
-              <span className="block text-[9px] opacity-75">
-                @ ₱{Number(item.price).toFixed(2)}/{item.unit || 'kg'}
-              </span>
-            )}
-          </div>
-          <span className="w-1/4 text-center font-bold">
-            {qty}{unitLabel ? ` ${unitLabel}` : ''}
-          </span>
-          <span className="w-1/4 text-right font-bold">
-            ₱{(item.price * qty).toFixed(2)}
-          </span>
-        </div>
-      );
-    })}
+    {items.map((item, i) => (
+      <div key={i} className="flex justify-between items-start">
+        <span className="w-1/2 break-words">{item.name}</span>
+        <span className="w-1/4 text-center">x{(item.quantity || item.qty)}</span>
+        <span className="w-1/4 text-right">₱{(item.price * (item.quantity || item.qty)).toFixed(2)}</span>
+      </div>
+    ))}
   </div>
 );
 
@@ -185,7 +132,6 @@ const EWalletDetails = ({ details, total }: { details: any, total: number }) => 
 );
 
 const ReceiptFooter = ({ 
-  store,
   total, 
   paymentMethod, 
   amountPaid, 
@@ -201,18 +147,12 @@ const ReceiptFooter = ({
 }: any) => {
   const vatExempt = 0;
   const zeroRated = 0;
-  const settings = store?.receiptSettings;
-  const showCustomer = settings?.showCustomer ?? true;
-  const showTaxBreakdown = settings?.showTaxBreakdown ?? true;
-  const footerGreeting = settings?.footerGreeting || 'Salamat Po!';
-  const policyNotice = settings?.policyNotice !== undefined ? settings?.policyNotice : 'Please keep this receipt for your records.';
-  const disclaimer = settings?.disclaimer || 'Official Receipt';
   
   return (
     <>
       <div className="border-t border-dashed border-black my-3" />
       <div className="space-y-1 mb-6">
-        {showTaxBreakdown && taxType === 'VAT' && type === 'sales' && (
+        {taxType === 'VAT' && type === 'sales' && (
           <div className="space-y-0.5 mb-2 text-[10px]">
             <div className="flex justify-between opacity-70">
               <span>VATable Sales:</span>
@@ -232,7 +172,7 @@ const ReceiptFooter = ({
             </div>
           </div>
         )}
-        <div className="flex justify-between text-base sm:text-lg font-bold">
+        <div className="flex justify-between text-lg font-bold">
           <span>{type === 'sales' ? 'TOTAL:' : 'GRAND TOTAL:'}</span>
           <span>₱{(type === 'sales' ? total : total + (ewalletDetails?.fee || 0)).toFixed(2)}</span>
         </div>
@@ -244,7 +184,7 @@ const ReceiptFooter = ({
             <span className="uppercase">{paymentMethod?.replace('_', ' ')}</span>
           </div>
 
-          {showCustomer && customerName && (
+          {customerName && (
             <div className="flex justify-between opacity-80">
               <span>Customer:</span>
               <span className="font-bold uppercase">{customerName}</span>
@@ -295,11 +235,11 @@ const ReceiptFooter = ({
           )}
         </div>
       </div>
-      <div className="text-center mt-6 space-y-1">
-        <p className="font-bold uppercase text-[11px] tracking-wide">{footerGreeting}</p>
-        {policyNotice && <p className="text-[8px] opacity-75 leading-tight px-1 whitespace-pre-line">{policyNotice}</p>}
-        {disclaimer && <p className="text-[8px] opacity-45 mt-2 italic">{disclaimer}</p>}
-        <p className="text-[8px] opacity-35">Powered by Sari-Sari POS</p>
+      <div className="text-center mt-8 space-y-1">
+        <p className="font-bold uppercase text-[10px]">Salamat Po!</p>
+        <p className="text-[8px] opacity-60">Please keep this receipt for your records.</p>
+        <p className="text-[8px] opacity-40 mt-2 italic">Official Receipt</p>
+        <p className="text-[8px] opacity-40">Powered by Sari-Sari POS</p>
       </div>
     </>
   );
@@ -328,33 +268,49 @@ export function Receipt({
 }: ReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
 
-  const is58mm = store?.receiptSettings?.paperWidth === '58mm';
-  const isSans = store?.receiptSettings?.fontStyle === 'sans';
-  const paperWidthClass = is58mm ? 'w-[58mm] min-w-[220px]' : 'w-[80mm] min-w-[280px]';
-  const fontClass = isSans ? 'font-sans' : 'font-mono';
-  const fontFamilyStyle = isSans ? { fontFamily: 'system-ui, -apple-system, sans-serif' } : { fontFamily: "'Courier New', Courier, monospace" };
-
   const handlePrint = () => {
+    document.body.classList.add('printing-receipt');
     window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-receipt');
+    }, 1500);
   };
 
   const handleDownloadPDF = async () => {
     const element = receiptRef.current;
     if (!element) return;
 
+    // Ensure full receipt is captured without viewport clipping
+    const originalMaxHeight = element.style.maxHeight;
+    const originalOverflow = element.style.overflow;
+    element.style.maxHeight = 'none';
+    element.style.overflow = 'visible';
+
     const canvas = await html2canvas(element, {
       scale: 2,
       backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      scrollY: 0,
+      windowHeight: element.scrollHeight + 100,
+      height: element.scrollHeight,
     });
     
+    element.style.maxHeight = originalMaxHeight;
+    element.style.overflow = originalOverflow;
+
     const imgData = canvas.toDataURL('image/png');
+    const receiptWidthMm = 80;
+    // Calculate exact height needed in mm so nothing is EVER cut off
+    const receiptHeightMm = (canvas.height * receiptWidthMm) / canvas.width;
+
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [80, canvas.height * 80 / canvas.width]
+      format: [receiptWidthMm, Math.max(80, receiptHeightMm + 8)]
     });
 
-    pdf.addImage(imgData, 'PNG', 0, 0, 80, canvas.height * 80 / canvas.width);
+    pdf.addImage(imgData, 'PNG', 0, 4, receiptWidthMm, receiptHeightMm);
     pdf.save(`receipt-${ticketNumber}.pdf`);
   };
 
@@ -363,7 +319,24 @@ export function Receipt({
     if (!element) return;
 
     try {
-      const canvas = await html2canvas(element, { scale: 2 });
+      const originalMaxHeight = element.style.maxHeight;
+      const originalOverflow = element.style.overflow;
+      element.style.maxHeight = 'none';
+      element.style.overflow = 'visible';
+
+      const canvas = await html2canvas(element, { 
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        scrollY: 0,
+        windowHeight: element.scrollHeight + 100,
+        height: element.scrollHeight,
+      });
+
+      element.style.maxHeight = originalMaxHeight;
+      element.style.overflow = originalOverflow;
+
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         const file = new File([blob], `Receipt-${ticketNumber}.png`, { type: 'image/png' });
@@ -385,14 +358,14 @@ export function Receipt({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white dark:bg-gray-900 rounded-[2rem] w-full max-w-sm overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors"
+        className="bg-white dark:bg-gray-900 rounded-[2rem] w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors my-auto"
       >
         {/* Actions Header */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800 shrink-0">
           <div className="flex gap-2">
             <button 
               type="button"
@@ -428,13 +401,13 @@ export function Receipt({
           </button>
         </div>
 
-        {/* Receipt Content (Preview) */}
-        <div className="p-3 sm:p-6 md:p-8 bg-gray-100 dark:bg-gray-950 flex justify-center overflow-x-auto overflow-y-auto max-h-[70vh]">
+        {/* Receipt Content (Preview) - Full height scrollable with auto-fit content */}
+        <div className="p-3 sm:p-5 md:p-6 bg-gray-100 dark:bg-gray-950 flex justify-center overflow-x-auto overflow-y-auto max-h-[68vh] sm:max-h-[75vh] scroll-smooth">
           <div 
             id="printable-receipt"
             ref={receiptRef}
-            className={`bg-white ${paperWidthClass} p-5 sm:p-6 shadow-lg ${fontClass} text-[12px] leading-tight text-black shrink-0`}
-            style={fontFamilyStyle}
+            className="bg-white w-[80mm] min-w-[280px] p-5 sm:p-6 shadow-xl font-mono text-[12px] leading-tight text-black shrink-0 h-auto min-h-min overflow-visible"
+            style={{ fontFamily: "'Courier New', Courier, monospace" }}
           >
             <ReceiptHeader 
               store={store} 
@@ -452,7 +425,6 @@ export function Receipt({
             )}
 
             <ReceiptFooter 
-              store={store}
               total={total} 
               paymentMethod={paymentMethod} 
               amountPaid={amountPaid}

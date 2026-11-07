@@ -290,10 +290,10 @@ function HomeDashboard() {
   
             <div className="relative z-10 w-full">
               <div className="mb-6 sm:mb-8 text-center max-w-4xl mx-auto">
-                <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-gray-950 dark:text-white tracking-tight leading-tight">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">
                   Mabuhay, {store.name}!
                 </h2>
-                <p className="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-300 font-bold mt-2">
+                <p className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mt-2 page-title-subheading">
                   Your store is open and ready for business. What would you like to do today?
                 </p>
               </div>

@@ -197,8 +197,8 @@ export default function ProductsPage() {
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h2 className="text-3xl font-black text-gray-950 dark:text-white tracking-tight">Inventory</h2>
-                <p className="text-gray-600 dark:text-gray-300 font-bold text-sm mt-0.5">Manage your store products and stock.</p>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Inventory</h2>
+                <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Manage your store products and stock.</p>
               </div>
             </div>
   

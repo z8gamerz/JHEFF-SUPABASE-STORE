@@ -109,8 +109,8 @@ export default function UsersManagementPage() {
         <main className="w-full px-3 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <div>
-              <h2 className="text-3xl font-black text-gray-950 dark:text-white tracking-tighter uppercase leading-tight">User Management</h2>
-              <p className="text-gray-600 dark:text-gray-300 font-bold mt-2 text-sm">Manage staff accounts and permissions</p>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">User Management</h2>
+              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Manage staff accounts and permissions</p>
             </div>
             
             <button

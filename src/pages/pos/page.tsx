@@ -143,6 +143,7 @@ export default function POSPage() {
 
   const handleCheckout = () => {
     if (cart.length === 0 || !currentBranchId) return;
+    setShowCartMobile(false);
     setIsCheckoutModalOpen(true);
   };
 
@@ -364,7 +365,7 @@ export default function POSPage() {
                     </Link>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight">Checkout</h2>
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Checkout</h2>
                         {currentBranch && (
                           <span className="bg-orange-100 dark:bg-orange-950/90 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1 shadow-2xs shrink-0">
                             <MapPin className="w-3 h-3" />
@@ -372,7 +373,7 @@ export default function POSPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] sm:text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Select items for transaction</p>
+                      <p className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 page-title-subheading">Select items for transaction</p>
                     </div>
                   </div>
                   

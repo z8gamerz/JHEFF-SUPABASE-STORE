@@ -58,8 +58,8 @@ export default function AuditTrailPage() {
               <ArrowLeft className="w-6 h-6" />
             </Link>
             <div>
-              <h1 className="text-4xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight uppercase">Audit Trail</h1>
-              <p className="text-gray-600 dark:text-gray-300 font-bold mt-1 text-sm">Monitor all significant actions and changes within the system.</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Audit Trail</h1>
+              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Monitor all significant actions and changes within the system.</p>
             </div>
           </div>
 
