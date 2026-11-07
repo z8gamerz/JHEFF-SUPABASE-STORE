@@ -45,41 +45,77 @@ interface ReceiptProps {
   onClose: () => void;
 }
 
-const ReceiptHeader = ({ store, branch, ticketNumber, orNumber, timestamp, type }: any) => (
-  <div className="text-center">
-    <h2 className="text-lg font-bold uppercase tracking-tighter leading-tight">{store?.name || 'Sari-Sari POS'}</h2>
-    {store?.address && <p className="text-[10px] font-bold leading-tight">{store.address}</p>}
-    {store?.tin && <p className="text-[10px] font-bold leading-tight">TIN: {store.tin}</p>}
-    {branch?.name && branch.name !== 'Main Branch' && <p className="text-[10px] font-bold leading-tight">{branch.name}</p>}
-    <div className="border-t border-dashed border-black my-3" />
-    
-    <div className="space-y-0.5 mb-4 text-left text-[10px]">
-      <div className="flex justify-between">
-        <span>Ticket:</span>
-        <span className="font-bold">{ticketNumber}</span>
-      </div>
-      {orNumber && (
-        <div className="flex justify-between">
-          <span>OR Number:</span>
-          <span className="font-bold">{orNumber}</span>
-        </div>
+const ReceiptHeader = ({ store, branch, ticketNumber, orNumber, timestamp, type, cashierName }: any) => {
+  const settings = store?.receiptSettings;
+  const storeName = settings?.headerTitle || store?.name || 'Sari-Sari POS';
+  const tagline = settings?.tagline;
+  const address = settings?.address || store?.address;
+  const phone = settings?.phone;
+  const tin = settings?.tin || store?.tin;
+  const permit = settings?.permitNumber;
+  const headerGreeting = settings?.headerGreeting;
+  const disclaimer = settings?.disclaimer || (type === 'sales' ? 'Sales Receipt' : 'E-Wallet Receipt');
+
+  const showAddress = settings?.showAddress ?? true;
+  const showPhone = settings?.showPhone ?? true;
+  const showTin = settings?.showTin ?? true;
+  const showDateTime = settings?.showDateTime ?? true;
+  const showCashier = settings?.showCashier ?? true;
+
+  return (
+    <div className="text-center">
+      <h2 className="text-base sm:text-lg font-bold uppercase tracking-tight leading-tight">{storeName}</h2>
+      {tagline && <p className="text-[10px] italic font-medium opacity-80 mt-0.5">{tagline}</p>}
+      {showAddress && address && <p className="text-[10px] font-bold leading-tight mt-0.5">{address}</p>}
+      {showPhone && phone && <p className="text-[10px] font-medium leading-tight">Tel: {phone}</p>}
+      {showTin && tin && <p className="text-[10px] font-bold leading-tight">TIN: {tin}</p>}
+      {permit && <p className="text-[9px] font-medium opacity-75">Permit #: {permit}</p>}
+      {branch?.name && branch.name !== 'Main Branch' && <p className="text-[10px] font-bold leading-tight mt-0.5">{branch.name}</p>}
+      {headerGreeting && (
+        <p className="text-[9px] font-medium opacity-80 mt-1 italic border-y border-dotted border-black/30 py-0.5">
+          {headerGreeting}
+        </p>
       )}
-      <div className="flex justify-between">
-        <span>Date:</span>
-        <span>{format(timestamp, 'MMM dd, yyyy')}</span>
+      <div className="border-t border-dashed border-black my-2.5" />
+      
+      <div className="space-y-0.5 mb-3 text-left text-[10px]">
+        <div className="flex justify-between">
+          <span>Ticket:</span>
+          <span className="font-bold">{ticketNumber}</span>
+        </div>
+        {orNumber && (
+          <div className="flex justify-between">
+            <span>OR Number:</span>
+            <span className="font-bold">{orNumber}</span>
+          </div>
+        )}
+        {showDateTime && (
+          <>
+            <div className="flex justify-between">
+              <span>Date:</span>
+              <span>{format(timestamp, 'MMM dd, yyyy')}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Time:</span>
+              <span>{format(timestamp, 'hh:mm a')}</span>
+            </div>
+          </>
+        )}
+        {showCashier && cashierName && (
+          <div className="flex justify-between">
+            <span>Cashier:</span>
+            <span className="font-bold">{cashierName}</span>
+          </div>
+        )}
+        <div className="flex justify-between">
+          <span>Type:</span>
+          <span className="uppercase font-bold">{disclaimer}</span>
+        </div>
       </div>
-      <div className="flex justify-between">
-        <span>Time:</span>
-        <span>{format(timestamp, 'hh:mm a')}</span>
-      </div>
-      <div className="flex justify-between">
-        <span>Type:</span>
-        <span className="uppercase font-bold">{type === 'sales' ? 'Sales Receipt' : 'E-Wallet Receipt'}</span>
-      </div>
+      <div className="border-t border-dashed border-black my-2.5" />
     </div>
-    <div className="border-t border-dashed border-black my-3" />
-  </div>
-);
+  );
+};
 
 const SalesItems = ({ items }: { items: any[] }) => (
   <div className="space-y-2 mb-4">
@@ -149,6 +185,7 @@ const EWalletDetails = ({ details, total }: { details: any, total: number }) => 
 );
 
 const ReceiptFooter = ({ 
+  store,
   total, 
   paymentMethod, 
   amountPaid, 
@@ -164,12 +201,18 @@ const ReceiptFooter = ({
 }: any) => {
   const vatExempt = 0;
   const zeroRated = 0;
+  const settings = store?.receiptSettings;
+  const showCustomer = settings?.showCustomer ?? true;
+  const showTaxBreakdown = settings?.showTaxBreakdown ?? true;
+  const footerGreeting = settings?.footerGreeting || 'Salamat Po!';
+  const policyNotice = settings?.policyNotice !== undefined ? settings?.policyNotice : 'Please keep this receipt for your records.';
+  const disclaimer = settings?.disclaimer || 'Official Receipt';
   
   return (
     <>
       <div className="border-t border-dashed border-black my-3" />
       <div className="space-y-1 mb-6">
-        {taxType === 'VAT' && type === 'sales' && (
+        {showTaxBreakdown && taxType === 'VAT' && type === 'sales' && (
           <div className="space-y-0.5 mb-2 text-[10px]">
             <div className="flex justify-between opacity-70">
               <span>VATable Sales:</span>
@@ -189,7 +232,7 @@ const ReceiptFooter = ({
             </div>
           </div>
         )}
-        <div className="flex justify-between text-lg font-bold">
+        <div className="flex justify-between text-base sm:text-lg font-bold">
           <span>{type === 'sales' ? 'TOTAL:' : 'GRAND TOTAL:'}</span>
           <span>₱{(type === 'sales' ? total : total + (ewalletDetails?.fee || 0)).toFixed(2)}</span>
         </div>
@@ -201,7 +244,7 @@ const ReceiptFooter = ({
             <span className="uppercase">{paymentMethod?.replace('_', ' ')}</span>
           </div>
 
-          {customerName && (
+          {showCustomer && customerName && (
             <div className="flex justify-between opacity-80">
               <span>Customer:</span>
               <span className="font-bold uppercase">{customerName}</span>
@@ -252,11 +295,11 @@ const ReceiptFooter = ({
           )}
         </div>
       </div>
-      <div className="text-center mt-8 space-y-1">
-        <p className="font-bold uppercase text-[10px]">Salamat Po!</p>
-        <p className="text-[8px] opacity-60">Please keep this receipt for your records.</p>
-        <p className="text-[8px] opacity-40 mt-2 italic">Official Receipt</p>
-        <p className="text-[8px] opacity-40">Powered by Sari-Sari POS</p>
+      <div className="text-center mt-6 space-y-1">
+        <p className="font-bold uppercase text-[11px] tracking-wide">{footerGreeting}</p>
+        {policyNotice && <p className="text-[8px] opacity-75 leading-tight px-1 whitespace-pre-line">{policyNotice}</p>}
+        {disclaimer && <p className="text-[8px] opacity-45 mt-2 italic">{disclaimer}</p>}
+        <p className="text-[8px] opacity-35">Powered by Sari-Sari POS</p>
       </div>
     </>
   );
@@ -284,6 +327,12 @@ export function Receipt({
   onClose
 }: ReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
+
+  const is58mm = store?.receiptSettings?.paperWidth === '58mm';
+  const isSans = store?.receiptSettings?.fontStyle === 'sans';
+  const paperWidthClass = is58mm ? 'w-[58mm] min-w-[220px]' : 'w-[80mm] min-w-[280px]';
+  const fontClass = isSans ? 'font-sans' : 'font-mono';
+  const fontFamilyStyle = isSans ? { fontFamily: 'system-ui, -apple-system, sans-serif' } : { fontFamily: "'Courier New', Courier, monospace" };
 
   const handlePrint = () => {
     window.print();
@@ -384,8 +433,8 @@ export function Receipt({
           <div 
             id="printable-receipt"
             ref={receiptRef}
-            className="bg-white w-[80mm] min-w-[280px] p-5 sm:p-6 shadow-lg font-mono text-[12px] leading-tight text-black shrink-0"
-            style={{ fontFamily: "'Courier New', Courier, monospace" }}
+            className={`bg-white ${paperWidthClass} p-5 sm:p-6 shadow-lg ${fontClass} text-[12px] leading-tight text-black shrink-0`}
+            style={fontFamilyStyle}
           >
             <ReceiptHeader 
               store={store} 
@@ -403,6 +452,7 @@ export function Receipt({
             )}
 
             <ReceiptFooter 
+              store={store}
               total={total} 
               paymentMethod={paymentMethod} 
               amountPaid={amountPaid}

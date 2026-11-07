@@ -4,7 +4,7 @@ import { useStore } from '@/lib/hooks/use-store';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { StoreSetup } from '@/components/inventory/store-setup';
 import { Header } from '@/components/layout/header';
-import { Loader2, Package, ShoppingCart, Users, ArrowRight, BarChart3, Truck, LayoutDashboard, Settings, CloudLightning, Copy, Check, ExternalLink, AlertTriangle, X, TrendingDown } from 'lucide-react';
+import { Loader2, Package, ShoppingCart, Users, ArrowRight, BarChart3, Truck, LayoutDashboard, Settings, CloudLightning, Copy, Check, ExternalLink, AlertTriangle, X, TrendingDown, FolderTree } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
@@ -109,6 +109,17 @@ function HomeDashboard() {
       bg: 'bg-orange-50 dark:bg-orange-950/30 dark:border dark:border-orange-900/30',
       textColor: 'text-orange-900 dark:text-orange-200',
       accentColor: 'text-orange-600/70 dark:text-orange-400/80'
+    },
+    {
+      title: 'Categories',
+      description: 'Group & view items by category',
+      href: '/categories',
+      icon: FolderTree,
+      color: 'bg-emerald-600',
+      shadow: 'shadow-emerald-100 dark:shadow-none',
+      bg: 'bg-emerald-50 dark:bg-emerald-950/30 dark:border dark:border-emerald-900/30',
+      textColor: 'text-emerald-900 dark:text-emerald-200',
+      accentColor: 'text-emerald-600/70 dark:text-emerald-400/80'
     },
     {
       title: 'Restocking',

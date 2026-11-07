@@ -1,3 +1,29 @@
+export type ReceiptSettings = {
+  headerTitle?: string;
+  tagline?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  tin?: string;
+  permitNumber?: string;
+  orPrefix?: string;
+  ticketPrefix?: string;
+  headerGreeting?: string;
+  footerGreeting?: string;
+  policyNotice?: string;
+  disclaimer?: string;
+  showAddress?: boolean;
+  showPhone?: boolean;
+  showTin?: boolean;
+  showCashier?: boolean;
+  showCustomer?: boolean;
+  showTaxBreakdown?: boolean;
+  showDateTime?: boolean;
+  paperWidth?: '58mm' | '80mm';
+  fontStyle?: 'mono' | 'sans';
+  updatedAt?: number;
+};
+
 export type StoreInfo = {
   id: string;
   name: string;
@@ -8,6 +34,7 @@ export type StoreInfo = {
   vatRate: number;
   lastORNumber: number; // Added for sequential OR numbering
   lastSyncedAt?: number; // Last successful full sync with cloud
+  receiptSettings?: ReceiptSettings; // Customizable receipt details
   updatedAt: number;
   isDeleted?: boolean;
 };
@@ -199,13 +226,26 @@ export type Expense = {
   updatedAt: number;
 };
 
+export type Category = {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string; // Color badge theme
+  icon?: string;
+  branchId?: string; // Optional branch-specific category
+  createdAt: number;
+  updatedAt: number;
+  isDeleted?: boolean;
+};
+
 const DB_NAME = 'SariSariPOS_DB';
-const DB_VERSION = 16; // Incremented for Expense store additions
+const DB_VERSION = 17; // Incremented for Categories store addition
 
 export const STORES = {
   STORE_INFO: 'store_info',
   BRANCHES: 'branches',
   PRODUCTS: 'products',
+  CATEGORIES: 'categories',
   TRANSACTIONS: 'transactions',
   CUSTOMERS: 'customers',
   CREDIT_LOG: 'credit_log',
@@ -239,17 +279,17 @@ class IndexedDBUtility {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
 
-        // Helper to create or recreate stores
+        // Helper to ensure stores exist without deleting existing data
         const ensureStore = (name: string, options: IDBObjectStoreParameters) => {
-          if (db.objectStoreNames.contains(name)) {
-            db.deleteObjectStore(name);
+          if (!db.objectStoreNames.contains(name)) {
+            db.createObjectStore(name, options);
           }
-          db.createObjectStore(name, options);
         };
 
         ensureStore(STORES.STORE_INFO, { keyPath: 'id' });
         ensureStore(STORES.BRANCHES, { keyPath: 'id' });
         ensureStore(STORES.PRODUCTS, { keyPath: 'id' });
+        ensureStore(STORES.CATEGORIES, { keyPath: 'id' });
         ensureStore(STORES.TRANSACTIONS, { keyPath: 'id' });
         ensureStore(STORES.CUSTOMERS, { keyPath: 'id' });
         ensureStore(STORES.CREDIT_LOG, { keyPath: 'id' });

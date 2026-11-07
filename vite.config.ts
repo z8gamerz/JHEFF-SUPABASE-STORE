@@ -199,6 +199,7 @@ export default defineConfig(() => {
       tailwindcss(),
       smtpApiPlugin(),
       VitePWA({
+        injectRegister: null,
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
@@ -267,7 +268,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
       }),

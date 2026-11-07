@@ -6,6 +6,7 @@ import { X, Save, Package, Tag, Hash, Coins, MapPin, AlertTriangle, Scale } from
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useBranches } from '@/lib/hooks/use-branches';
+import { useCategories } from '@/lib/hooks/use-categories';
 
 interface ProductFormProps {
   product?: Product | null;
@@ -28,6 +29,9 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
     isWeightBased: false,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const { categories, addCategory } = useCategories(formData.branchId || currentBranchId || undefined);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
 
   useEffect(() => {
     if (product) {
@@ -37,7 +41,7 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
         cost: (product.cost || 0).toString(),
         stock: product.stock.toString(),
         minStock: product.minStock !== undefined ? product.minStock.toString() : '',
-        category: product.category,
+        category: product.category || (categories[0]?.name || 'Others'),
         barcode: product.barcode || '',
         branchId: product.branchId,
         unit: product.unit || (product.isWeightBased ? 'kg' : 'pc'),
@@ -47,12 +51,13 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
       setFormData(prev => ({ 
         ...prev, 
         branchId: currentBranchId, 
+        category: prev.category || (categories[0]?.name || 'Others'),
         minStock: '',
         unit: 'pc',
         isWeightBased: false,
       }));
     }
-  }, [product, currentBranchId]);
+  }, [product, currentBranchId, categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,25 +206,83 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
-                  Category *
-                </label>
-                <select
-                  required
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all cursor-pointer shadow-xs"
-                >
-                  <option value="">Select...</option>
-                  <option value="Rice & Grains">Rice & Grains (Bigas)</option>
-                  <option value="Meat & Poultry">Meat & Poultry</option>
-                  <option value="Produce">Produce / Fruits & Veg</option>
-                  <option value="Drinks">Drinks</option>
-                  <option value="Snacks">Snacks</option>
-                  <option value="Canned Goods">Canned Goods</option>
-                  <option value="Essentials">Essentials</option>
-                  <option value="Others">Others</option>
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider">
+                    Category *
+                  </label>
+                  {!isAddingNewCategory && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingNewCategory(true)}
+                      className="text-[10px] font-black uppercase text-orange-600 dark:text-orange-400 hover:underline cursor-pointer"
+                    >
+                      + New
+                    </button>
+                  )}
+                </div>
+
+                {isAddingNewCategory ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Type category..."
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="flex-1 px-3 py-2.5 rounded-xl border-2 border-orange-500 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-xs outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const trimmed = newCatName.trim();
+                        if (trimmed) {
+                          try {
+                            await addCategory(trimmed);
+                          } catch {}
+                          setFormData(prev => ({ ...prev, category: trimmed }));
+                          setNewCatName('');
+                          setIsAddingNewCategory(false);
+                        }
+                      }}
+                      className="px-2.5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black transition-colors"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingNewCategory(false);
+                        setNewCatName('');
+                      }}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === '__ADD_NEW__') {
+                        setIsAddingNewCategory(true);
+                      } else {
+                        setFormData({ ...formData, category: e.target.value });
+                      }
+                    }}
+                    className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all cursor-pointer shadow-xs"
+                  >
+                    <option value="">Select...</option>
+                    {categories.map((c) => (
+                      <option key={c.id || c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                    {formData.category && !categories.some(c => c.name.toLowerCase() === formData.category.toLowerCase()) && (
+                      <option value={formData.category}>{formData.category}</option>
+                    )}
+                    <option value="__ADD_NEW__">+ Add Custom Category...</option>
+                  </select>
+                )}
               </div>
 
               <div>

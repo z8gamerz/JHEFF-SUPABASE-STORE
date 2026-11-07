@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product } from '@/lib/db/idb';
+import { Product, Category } from '@/lib/db/idb';
 import { Edit2, Trash2, Package, AlertCircle, AlertTriangle, ChevronLeft, ChevronRight, Scale } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface ProductListProps {
   products: Product[];
+  categories?: Category[];
   lowStockThreshold?: number;
   onEdit?: (product: Product) => void;
   onDelete?: (id: string) => void;
@@ -14,7 +15,7 @@ interface ProductListProps {
 
 const ITEMS_PER_PAGE = 20; // 5 columns x 4 rows pagination
 
-export function ProductList({ products, lowStockThreshold = 10, onEdit, onDelete }: ProductListProps) {
+export function ProductList({ products, categories = [], lowStockThreshold = 10, onEdit, onDelete }: ProductListProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 if total product list changes
@@ -67,9 +68,23 @@ export function ProductList({ products, lowStockThreshold = 10, onEdit, onDelete
               <div>
                 <div className="flex justify-between items-start gap-2 mb-3">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="bg-orange-100 dark:bg-orange-950/80 text-orange-900 dark:text-orange-200 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md line-clamp-1 border border-orange-200 dark:border-orange-800">
-                      {product.category}
-                    </span>
+                    {(() => {
+                      const catObj = categories.find(c => c.name.toLowerCase() === (product.category || '').toLowerCase());
+                      const color = catObj?.color || '#ea580c';
+                      return (
+                        <span 
+                          className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md line-clamp-1 border flex items-center gap-1.5"
+                          style={{
+                            backgroundColor: `${color}18`,
+                            borderColor: `${color}40`,
+                            color: color,
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                          <span>{product.category || 'Uncategorized'}</span>
+                        </span>
+                      );
+                    })()}
                     {product.isWeightBased && (
                       <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 text-[10px] font-black uppercase tracking-wider px-1.5 py-1 rounded-md border border-amber-300 dark:border-amber-800 flex items-center gap-1">
                         <Scale className="w-3 h-3 stroke-[2.5]" />

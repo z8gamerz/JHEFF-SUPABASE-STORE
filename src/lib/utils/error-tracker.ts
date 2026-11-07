@@ -17,6 +17,16 @@ export function initErrorTracker() {
   window.addEventListener('error', (event) => {
     const errorMsg = event.message || 'Unknown window error';
     const source = `${event.filename || 'unknown'}:${event.lineno || 0}:${event.colno || 0}`;
+
+    // Filter out internal Vite HMR / dev websocket artifacts in iFrame preview
+    if (
+      errorMsg.includes("reading 'send'") ||
+      errorMsg.includes('WebSocket') ||
+      (event.filename && event.filename.includes('@vite'))
+    ) {
+      return;
+    }
+
     console.error('[ErrorTracker] Uncaught error:', errorMsg, source);
 
     try {
@@ -30,6 +40,16 @@ export function initErrorTracker() {
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason instanceof Error ? event.reason.message : String(event.reason);
+
+    // Filter out internal Vite HMR / dev websocket artifacts in iFrame preview
+    if (
+      reason.includes("reading 'send'") || 
+      reason.includes('WebSocket') || 
+      reason.includes('@vite')
+    ) {
+      return;
+    }
+
     console.error('[ErrorTracker] Unhandled Promise Rejection:', reason);
 
     try {
