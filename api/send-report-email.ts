@@ -110,10 +110,14 @@ export default async function handler(req: any, res: any) {
     const info = await transporter.sendMail(mailOptions);
     return res.status(200).json({ success: true, messageId: info.messageId });
   } catch (err: any) {
-    console.error('[API Send Report Email Error]:', err?.message || err);
-    return res.status(500).json({
+    const msg = err?.message || String(err);
+    console.error('[API Send Report Email Error]:', msg, err?.stack || '');
+    const isAuth = /auth|invalid login|credentials|535|534|username|password/i.test(msg);
+    return res.status(isAuth ? 401 : 500).json({
       success: false,
-      error: 'Failed to send email. Check SMTP configuration and network connection.'
+      error: isAuth
+        ? 'SMTP authentication failed. Verify Gmail App Password and sender email on the server.'
+        : `Failed to send email: ${msg}`,
     });
   }
 }

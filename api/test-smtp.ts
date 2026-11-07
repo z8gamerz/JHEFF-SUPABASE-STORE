@@ -60,8 +60,15 @@ export default async function handler(req: any, res: any) {
     await transporter.verify();
     return res.status(200).json({ success: true, message: 'SMTP credentials verified successfully.' });
   } catch (err: any) {
-    console.error('[API Test SMTP Error]:', err?.message || err);
-    return res.status(400).json({ success: false, error: 'Failed to authenticate with Gmail SMTP. Check configuration.' });
+    const msg = err?.message || String(err);
+    console.error('[API Test SMTP Error]:', msg, err?.stack || '');
+    const isAuth = /auth|invalid login|credentials|535|534|username|password/i.test(msg);
+    return res.status(isAuth ? 401 : 500).json({
+      success: false,
+      error: isAuth
+        ? 'SMTP authentication failed. Verify Gmail App Password and sender email.'
+        : `SMTP test failed: ${msg}`,
+    });
   }
 }
 

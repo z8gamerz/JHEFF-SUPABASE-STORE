@@ -210,10 +210,18 @@ export function EmailReportModal({
       }
 
       if (!response.ok || !result || !result.success) {
-        const fallbackMsg = response.status === 404 || response.status === 405
-          ? `Serverless endpoint not found (${response.status}). Verify Vercel /api deployment.`
-          : `Failed to dispatch email (HTTP ${response.status}). Check Gmail App Password.`;
-        throw new Error(result?.error || fallbackMsg);
+        const serverErr = typeof result?.error === 'string' ? result.error : '';
+        const fallbackMsg =
+          response.status === 404 || response.status === 405
+            ? `Serverless endpoint not found (${response.status}). Verify Vercel /api deployment and redeploy (old build shows generic 500).`
+            : response.status === 401
+              ? `Unauthorized (HTTP 401). Save the POS API key (must match server POS_API_SECRET) in Admin → System Health. If SMTP auth failed, check SMTP_SENDER_EMAIL/SMTP_APP_PASSWORD on the server.`
+              : response.status === 403
+                ? `Origin not allowed (HTTP 403). Set ALLOWED_ORIGINS on the server to this site’s URL (e.g. https://your-app.vercel.app) and redeploy.`
+              : response.status === 503
+                ? `Service not configured (HTTP 503). Set POS_API_SECRET, SMTP_SENDER_EMAIL, and SMTP_APP_PASSWORD in server environment variables, then redeploy.`
+                : `Email failed (HTTP ${response.status}). Redeploy with latest code to see the real server error.`;
+        throw new Error(serverErr || fallbackMsg);
       }
 
       await auditService.log(

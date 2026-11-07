@@ -110,9 +110,16 @@ export function EmailSettings() {
       if (response.ok && data?.success) {
         setTestResult({ success: true, message: data?.message || 'SMTP connection verified.' });
       } else {
+        const hint = response.status === 503
+          ? ' Set POS_API_SECRET and SMTP env vars on the server, then redeploy.'
+          : response.status === 401
+            ? ' Save the POS API key (same as server POS_API_SECRET) in Admin → System Health, or verify SMTP credentials.'
+            : response.status === 403
+              ? ' Set ALLOWED_ORIGINS to your deployed site URL.'
+              : '';
         setTestResult({
           success: false,
-          message: data?.error || `Authentication failed (HTTP ${response.status}). Configure SMTP_APP_PASSWORD on the server or enter a test password (not saved).`,
+          message: (data?.error || `Authentication failed (HTTP ${response.status}).`) + hint + ' For production, configure SMTP_SENDER_EMAIL/SMTP_APP_PASSWORD on the server; the test password field is not saved.',
         });
       }
     } catch (err: any) {
