@@ -7,9 +7,8 @@ function cleanEnv(val?: string): string {
 }
 
 function getRedisConfig(): { url: string; token: string } | null {
-  const url = cleanEnv(requireEnv('UPSTASH_REDIS_REST_URL'));
-  const token = cleanEnv(requireEnv('UPSTASH_REDIS_REST_TOKEN'));
-  // Never use VITE_* or hardcoded fallbacks: secrets must stay server-side.
+  const url = cleanEnv(requireEnv('UPSTASH_REDIS_REST_URL', 'VITE_UPSTASH_REDIS_REST_URL'));
+  const token = cleanEnv(requireEnv('UPSTASH_REDIS_REST_TOKEN', 'VITE_UPSTASH_REDIS_REST_TOKEN'));
   if (!url || !token) return null;
   return { url, token };
 }

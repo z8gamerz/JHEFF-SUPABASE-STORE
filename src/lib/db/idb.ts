@@ -117,6 +117,7 @@ export type Customer = {
   branchId: string; // Reference to Branch
   createdAt: number;
   updatedAt: number;
+  notes?: string;
   isDeleted?: boolean;
 };
 
