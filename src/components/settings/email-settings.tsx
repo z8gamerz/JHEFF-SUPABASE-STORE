@@ -144,94 +144,6 @@ export function EmailSettings() {
     }
   };
 
-  const [isSendingTest, setIsSendingTest] = useState(false);
-
-  const handleSendTestEmail = async () => {
-    const recipient = defaultRecipient.trim() || senderEmail.trim();
-    if (!senderEmail || !appPassword) {
-      setTestResult({
-        success: false,
-        message: 'Please provide both Gmail address and Google App Password before dispatching a test email.',
-      });
-      return;
-    }
-    if (!recipient) {
-      setTestResult({
-        success: false,
-        message: 'Please specify a recipient email address (or your own Gmail address) to receive the test email.',
-      });
-      return;
-    }
-
-    setIsSendingTest(true);
-    setTestResult(null);
-
-    try {
-      const response = await fetch('/api/send-report-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderEmail: senderEmail.trim(),
-          appPassword: appPassword.trim(),
-          recipientEmail: recipient,
-          subject: '🛒 Sari-Sari POS: Test Email Verification',
-          htmlBody: `
-            <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <div style="text-align: center; margin-bottom: 24px;">
-                <h1 style="color: #ea580c; margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">SARI-SARI POS</h1>
-                <p style="color: #64748b; font-size: 13px; margin: 4px 0 0 0; font-weight: 600;">System Email Operational Test</p>
-              </div>
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                <p style="color: #0f172a; font-size: 16px; font-weight: 800; margin-top: 0; margin-bottom: 8px;">
-                  🎉 Success! Your email sending is active and verified.
-                </p>
-                <p style="color: #334155; font-size: 13px; line-height: 1.6; margin-bottom: 16px;">
-                  This confirms that your Google App Password and SMTP connection are configured properly in Sari-Sari POS. You will now be able to dispatch weekly sales summaries, credit audit logs, and PDF attachments seamlessly.
-                </p>
-                <div style="background-color: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px; font-size: 12px; color: #475569;">
-                  <div><strong>Sender:</strong> ${senderEmail.trim()}</div>
-                  <div style="margin-top: 4px;"><strong>Recipient:</strong> ${recipient}</div>
-                  <div style="margin-top: 4px;"><strong>Time:</strong> ${new Date().toLocaleString('en-PH', { dateStyle: 'full', timeStyle: 'medium' })}</div>
-                  <div style="margin-top: 4px;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">Verified &amp; Operational</span></div>
-                </div>
-              </div>
-              <p style="color: #94a3b8; font-size: 11px; text-align: center; margin: 0;">
-                Sari-Sari POS &bull; Modern Offline POS &amp; Credit Ledger
-              </p>
-            </div>
-          `,
-        }),
-      });
-
-      const responseText = await response.text();
-      let data: any = null;
-      try {
-        data = responseText ? JSON.parse(responseText) : null;
-      } catch {
-        console.error('Non-JSON response from /api/send-report-email:', responseText);
-      }
-
-      if (response.ok && data?.success) {
-        setTestResult({
-          success: true,
-          message: `✅ Test email successfully sent to ${recipient}! Please check your inbox or spam folder.`,
-        });
-      } else {
-        setTestResult({
-          success: false,
-          message: data?.error || 'Failed to dispatch test email. Please check your Google App Password and recipient address.',
-        });
-      }
-    } catch (err: any) {
-      setTestResult({
-        success: false,
-        message: err?.message || 'Network error occurred while dispatching test email.',
-      });
-    } finally {
-      setIsSendingTest(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="p-12 flex justify-center items-center">
@@ -388,8 +300,8 @@ export function EmailSettings() {
               <button
                 type="button"
                 onClick={handleTestConnection}
-                disabled={isTesting || isSendingTest || !senderEmail || !appPassword}
-                className="w-full sm:w-auto px-5 py-3.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isTesting || !senderEmail || !appPassword}
+                className="w-full sm:w-auto px-6 py-3.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isTesting ? (
                   <>
@@ -400,25 +312,6 @@ export function EmailSettings() {
                   <>
                     <KeyRound className="w-4 h-4 text-orange-600" />
                     Test Connection
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSendTestEmail}
-                disabled={isTesting || isSendingTest || !senderEmail || !appPassword}
-                className="w-full sm:w-auto px-5 py-3.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isSendingTest ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Sending Email...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    Send Test Email
                   </>
                 )}
               </button>

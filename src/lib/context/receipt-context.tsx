@@ -62,13 +62,7 @@ export function ReceiptProvider({ children }: { children: ReactNode }) {
     fetchStore();
   }, []);
 
-  const showReceipt = async (data: ReceiptData, onClose?: () => void) => {
-    try {
-      const store = await storeService.getStore();
-      if (store) setStoreInfo(store);
-    } catch (err) {
-      console.warn('Failed to refresh store info for receipt:', err);
-    }
+  const showReceipt = (data: ReceiptData, onClose?: () => void) => {
     setReceiptData(data);
     setOnCloseCallback(() => onClose || null);
     setIsOpen(true);

@@ -24,7 +24,6 @@ import {
   Loader2
 } from 'lucide-react';
 import { SECURE_PRODUCTION_RULES } from '@/lib/constants/firebase-rules';
-import { apiFetch } from '@/lib/api-client';
 
 export interface ScanResult {
   timestamp: number;
@@ -42,14 +41,25 @@ export interface ScanResult {
 export function DatabaseSecurity() {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [databaseSecret, setDatabaseSecret] = useState('');
   const [isApplyingFix, setIsApplyingFix] = useState(false);
   const [fixSuccess, setFixSuccess] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
   const [copiedRules, setCopiedRules] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
   const [showRulesPreview, setShowRulesPreview] = useState(false);
 
-  // URL loaded from environment (no project-specific hardcoded default)
+  const defaultUrl = 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+  // Load saved secret if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedToken = localStorage.getItem('pos_firebase_auth_token') || '';
+      if (savedToken) setDatabaseSecret(savedToken);
+    }
+  }, []);
+
+  // Run initial scan on mount
   useEffect(() => {
     runScan();
   }, []);
@@ -60,8 +70,7 @@ export function DatabaseSecurity() {
     setFixSuccess(false);
 
     try {
-      const baseUrl = (import.meta as any).env?.VITE_FIREBASE_RTDB_URL?.replace(/\/$/, '') || '';
-      if (!baseUrl) throw new Error('VITE_FIREBASE_RTDB_URL is not configured.');
+      const baseUrl = defaultUrl.replace(/\/$/, '');
       const issues: string[] = [];
       const recommendations: string[] = [];
 
@@ -141,23 +150,41 @@ export function DatabaseSecurity() {
     setFixSuccess(false);
 
     try {
-      // Server-side update only: FIREBASE_DATABASE_SECRET must be configured in server env.
-      const response = await apiFetch('/api/update-firebase-rules', {
-        method: 'POST',
-        body: JSON.stringify({ rules: SECURE_PRODUCTION_RULES })
-      });
+      // 1. If secret is entered or saved, attempt programmatic update via API
+      if (databaseSecret.trim()) {
+        localStorage.setItem('pos_firebase_auth_token', databaseSecret.trim());
+        
+        const response = await fetch('/api/update-firebase-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            secret: databaseSecret.trim(),
+            databaseUrl: defaultUrl,
+            rules: SECURE_PRODUCTION_RULES
+          })
+        });
 
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success) {
-        throw new Error(data?.error || 'Failed to update rules. Ensure FIREBASE_DATABASE_SECRET is set on the server.');
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data?.error || 'Failed to update rules programmatically via Database Secret.');
+        }
+
+        setFixSuccess(true);
+        await runScan();
+        return;
       }
 
-      setFixSuccess(true);
-      await runScan();
+      // 2. Direct client-side PUT if secret provided
+      const secret = databaseSecret.trim();
+      if (!secret) {
+        // Prompt for secret or fallback to copying rules
+        setFixError('Database Secret required for 1-click automatic update. Alternatively, copy the Production Rules below and publish them in your Firebase Rules Console.');
+        setShowRulesPreview(true);
+        return;
+      }
     } catch (err: any) {
       console.error('Fix now error:', err);
-      setFixError(err?.message || 'Error occurred while applying production rules.');
-      setShowRulesPreview(true);
+      setFixError(err.message || 'Error occurred while applying production rules.');
     } finally {
       setIsApplyingFix(false);
     }
@@ -429,7 +456,7 @@ export function DatabaseSecurity() {
         </div>
       </div>
 
-      {/* Programmatic Rules Management (server-side secret) */}
+      {/* Programmatic Secret Key Configuration & Fix Now Section */}
       <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 md:p-10 border border-gray-100 dark:border-gray-800 shadow-xl space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -438,30 +465,70 @@ export function DatabaseSecurity() {
               Programmatic Rules Management
             </h4>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">
-              Rule updates run server-side. Configure <code>FIREBASE_DATABASE_SECRET</code> in the server environment to enable one-click apply. Database secrets are never accepted from the browser.
+              Provide your Firebase Database Secret to allow this app to programmatically apply and audit production rules with a single click.
             </p>
           </div>
+
+          <a
+            href="https://console.firebase.google.com/project/database-for-inventory-88e9f/settings/serviceaccounts/databasesecrets"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-black text-orange-600 dark:text-orange-400 hover:underline inline-flex items-center gap-1.5 shrink-0"
+          >
+            Find Database Secret in Firebase Console <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
 
-        {/* Action Row: Apply, Copy & Console Link */}
-        <div className="pt-2 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="space-y-3">
+          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">
+            Firebase Database Secret Key (Optional for Automatic Updates)
+          </label>
+          <div className="flex gap-3">
+            <input
+              type="password"
+              value={databaseSecret}
+              onChange={(e) => setDatabaseSecret(e.target.value)}
+              placeholder="e.g. AIzaSy... or Firebase Database Secret"
+              className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-3.5 text-xs font-bold text-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+            />
+
             <button
               type="button"
               onClick={handleFixNow}
               disabled={isApplyingFix}
-              className="px-6 py-3.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-orange-600/20 disabled:opacity-50"
+              className="px-6 py-3.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-orange-600/20 disabled:opacity-50 shrink-0"
             >
-              {isApplyingFix ? (<><Loader2 className="w-4 h-4 animate-spin" />Applying...</>) : (<><Zap className="w-4 h-4 fill-white" />Apply Secure Defaults</>)}
+              {isApplyingFix ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 fill-white" />
+                  Apply Secure Defaults
+                </>
+              )}
             </button>
+          </div>
+        </div>
+
+        {/* Action Row: Direct Copy & Firebase Console Link */}
+        <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleCopyProductionRules}
-              className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${copiedRules ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200'}`}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                copiedRules 
+                  ? 'bg-emerald-600 text-white' 
+                  : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200'
+              }`}
             >
               {copiedRules ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {copiedRules ? 'Production Rules Copied!' : 'Copy Production Rules JSON'}
             </button>
+
             <button
               type="button"
               onClick={() => setShowRulesPreview(!showRulesPreview)}

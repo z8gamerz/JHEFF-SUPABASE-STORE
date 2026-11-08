@@ -4,7 +4,6 @@ import { BaseService } from './base-service';
 import { Customer, CreditEntry, STORES, dbUtil } from '@/lib/db/idb';
 import { syncDb } from '@/lib/db/sync-queue';
 import { upstashRedis } from './redis-service';
-import { apiFetch } from '@/lib/api-client';
 
 class CustomerService extends BaseService<Customer> {
   constructor() {
@@ -155,10 +154,11 @@ class CustomerService extends BaseService<Customer> {
     };
     await syncDb.update(STORES.CREDIT_LOG, updatedEntry);
 
-    // Auto-sync deletion to Upstash Redis in background (server-side auth required)
+    // Auto-sync deletion to Upstash Redis in background
     upstashRedis.pushUtangRecord(updatedEntry).catch(() => {});
-    apiFetch('/api/utang-webhook', {
+    fetch('/api/utang-webhook', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete_record', entryId, customerId: target.customerId })
     }).catch(() => {});
 

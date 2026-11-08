@@ -17,7 +17,6 @@ const Pos = lazy(() => import('@/pages/pos/page'));
 const PosHistory = lazy(() => import('@/pages/pos/history/page'));
 const EwalletHistory = lazy(() => import('@/pages/pos/ewallet-history/page'));
 const Products = lazy(() => import('@/pages/products/page'));
-const Categories = lazy(() => import('@/pages/categories/page'));
 const Restocking = lazy(() => import('@/pages/restocking/page'));
 const Utang = lazy(() => import('@/pages/utang/page'));
 const Expenses = lazy(() => import('@/pages/expenses/page'));
@@ -56,8 +55,6 @@ function AppContent() {
       return <EwalletHistory />;
     case '/products':
       return <Products />;
-    case '/categories':
-      return <Categories />;
     case '/restocking':
       return <Restocking />;
     case '/utang':

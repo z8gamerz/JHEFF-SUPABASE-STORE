@@ -85,16 +85,33 @@ const SalesItems = ({ items }: { items: any[] }) => (
   <div className="space-y-2 mb-4">
     <div className="flex justify-between font-bold text-[10px] uppercase">
       <span className="w-1/2">Item</span>
-      <span className="w-1/4 text-center">Qty</span>
+      <span className="w-1/4 text-center">Qty / Wt</span>
       <span className="w-1/4 text-right">Price</span>
     </div>
-    {items.map((item, i) => (
-      <div key={i} className="flex justify-between items-start">
-        <span className="w-1/2 break-words">{item.name}</span>
-        <span className="w-1/4 text-center">x{(item.quantity || item.qty)}</span>
-        <span className="w-1/4 text-right">₱{(item.price * (item.quantity || item.qty)).toFixed(2)}</span>
-      </div>
-    ))}
+    {items.map((item, i) => {
+      const qty = item.quantity !== undefined ? item.quantity : (item.qty || 1);
+      const isWeight = item.isWeightBased || (item.unit && item.unit !== 'pc');
+      const unitLabel = item.unit ? (item.unit === 'pc' ? 'pc' : item.unit) : '';
+
+      return (
+        <div key={i} className="flex justify-between items-start text-[11px]">
+          <div className="w-1/2 break-words pr-1">
+            <span className="font-bold">{item.name}</span>
+            {isWeight && (
+              <span className="block text-[9px] opacity-75">
+                @ ₱{Number(item.price).toFixed(2)}/{item.unit || 'kg'}
+              </span>
+            )}
+          </div>
+          <span className="w-1/4 text-center font-bold">
+            {qty}{unitLabel ? ` ${unitLabel}` : ''}
+          </span>
+          <span className="w-1/4 text-right font-bold">
+            ₱{(item.price * qty).toFixed(2)}
+          </span>
+        </div>
+      );
+    })}
   </div>
 );
 
@@ -269,48 +286,26 @@ export function Receipt({
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    document.body.classList.add('printing-receipt');
     window.print();
-    setTimeout(() => {
-      document.body.classList.remove('printing-receipt');
-    }, 1500);
   };
 
   const handleDownloadPDF = async () => {
     const element = receiptRef.current;
     if (!element) return;
 
-    // Ensure full receipt is captured without viewport clipping
-    const originalMaxHeight = element.style.maxHeight;
-    const originalOverflow = element.style.overflow;
-    element.style.maxHeight = 'none';
-    element.style.overflow = 'visible';
-
     const canvas = await html2canvas(element, {
       scale: 2,
       backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false,
-      scrollY: 0,
-      windowHeight: element.scrollHeight + 100,
-      height: element.scrollHeight,
     });
     
-    element.style.maxHeight = originalMaxHeight;
-    element.style.overflow = originalOverflow;
-
     const imgData = canvas.toDataURL('image/png');
-    const receiptWidthMm = 80;
-    // Calculate exact height needed in mm so nothing is EVER cut off
-    const receiptHeightMm = (canvas.height * receiptWidthMm) / canvas.width;
-
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [receiptWidthMm, Math.max(80, receiptHeightMm + 8)]
+      format: [80, canvas.height * 80 / canvas.width]
     });
 
-    pdf.addImage(imgData, 'PNG', 0, 4, receiptWidthMm, receiptHeightMm);
+    pdf.addImage(imgData, 'PNG', 0, 0, 80, canvas.height * 80 / canvas.width);
     pdf.save(`receipt-${ticketNumber}.pdf`);
   };
 
@@ -319,24 +314,7 @@ export function Receipt({
     if (!element) return;
 
     try {
-      const originalMaxHeight = element.style.maxHeight;
-      const originalOverflow = element.style.overflow;
-      element.style.maxHeight = 'none';
-      element.style.overflow = 'visible';
-
-      const canvas = await html2canvas(element, { 
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        logging: false,
-        scrollY: 0,
-        windowHeight: element.scrollHeight + 100,
-        height: element.scrollHeight,
-      });
-
-      element.style.maxHeight = originalMaxHeight;
-      element.style.overflow = originalOverflow;
-
+      const canvas = await html2canvas(element, { scale: 2 });
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         const file = new File([blob], `Receipt-${ticketNumber}.png`, { type: 'image/png' });
@@ -358,14 +336,14 @@ export function Receipt({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 overflow-y-auto">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white dark:bg-gray-900 rounded-[2rem] w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors my-auto"
+        className="bg-white dark:bg-gray-900 rounded-[2rem] w-full max-w-sm overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors"
       >
         {/* Actions Header */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800 shrink-0">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
           <div className="flex gap-2">
             <button 
               type="button"
@@ -401,12 +379,12 @@ export function Receipt({
           </button>
         </div>
 
-        {/* Receipt Content (Preview) - Full height scrollable with auto-fit content */}
-        <div className="p-3 sm:p-5 md:p-6 bg-gray-100 dark:bg-gray-950 flex justify-center overflow-x-auto overflow-y-auto max-h-[68vh] sm:max-h-[75vh] scroll-smooth">
+        {/* Receipt Content (Preview) */}
+        <div className="p-3 sm:p-6 md:p-8 bg-gray-100 dark:bg-gray-950 flex justify-center overflow-x-auto overflow-y-auto max-h-[70vh]">
           <div 
             id="printable-receipt"
             ref={receiptRef}
-            className="bg-white w-[80mm] min-w-[280px] p-5 sm:p-6 shadow-xl font-mono text-[12px] leading-tight text-black shrink-0 h-auto min-h-min overflow-visible"
+            className="bg-white w-[80mm] min-w-[280px] p-5 sm:p-6 shadow-lg font-mono text-[12px] leading-tight text-black shrink-0"
             style={{ fontFamily: "'Courier New', Courier, monospace" }}
           >
             <ReceiptHeader 
