@@ -13,6 +13,7 @@ import {
   UserPlus, 
   Receipt, 
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   Plus,
   Trash2,
@@ -61,6 +62,7 @@ interface CheckoutModalProps {
   onAddCustomer: (name: string, contact: string) => Promise<Customer | undefined>;
   onConfirm: (result: CheckoutResult) => Promise<void>;
   onClose: () => void;
+  onBackToCart?: () => void;
 }
 
 const PHILIPPINE_BANKS = [
@@ -84,6 +86,7 @@ export function CheckoutModal({
   onAddCustomer,
   onConfirm,
   onClose,
+  onBackToCart,
 }: CheckoutModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);

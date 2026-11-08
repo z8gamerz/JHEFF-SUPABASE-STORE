@@ -35,6 +35,7 @@ export type StoreInfo = {
   lastORNumber: number; // Added for sequential OR numbering
   lastSyncedAt?: number; // Last successful full sync with cloud
   receiptSettings?: ReceiptSettings; // Customizable receipt details
+  firebaseSecret?: string; // Client-side activated Firebase Database Secret
   updatedAt: number;
   isDeleted?: boolean;
 };

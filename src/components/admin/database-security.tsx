@@ -21,9 +21,16 @@ import {
   Info, 
   FileCode, 
   ChevronRight,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff,
+  Trash2,
+  Wifi,
+  Globe,
+  Sparkles
 } from 'lucide-react';
 import { SECURE_PRODUCTION_RULES } from '@/lib/constants/firebase-rules';
+import { realtimeSync } from '@/lib/db/realtime-sync';
 
 export interface ScanResult {
   timestamp: number;
@@ -42,6 +49,12 @@ export function DatabaseSecurity() {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [databaseSecret, setDatabaseSecret] = useState('');
+  const [isSecretSaved, setIsSecretSaved] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [activateSuccess, setActivateSuccess] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; latency?: number; message: string; timestamp?: number } | null>(null);
   const [isApplyingFix, setIsApplyingFix] = useState(false);
   const [fixSuccess, setFixSuccess] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
@@ -51,11 +64,16 @@ export function DatabaseSecurity() {
 
   const defaultUrl = 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-  // Load saved secret if available
+  // Load saved secret if available from localStorage or sessionStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedToken = localStorage.getItem('pos_firebase_auth_token') || '';
-      if (savedToken) setDatabaseSecret(savedToken);
+      const savedToken = localStorage.getItem('pos_firebase_auth_token') || 
+                         localStorage.getItem('firebase_database_secret') || 
+                         sessionStorage.getItem('pos_firebase_auth_token') || '';
+      if (savedToken) {
+        setDatabaseSecret(savedToken);
+        setIsSecretSaved(true);
+      }
     }
   }, []);
 
@@ -144,50 +162,192 @@ export function DatabaseSecurity() {
     }
   };
 
+  const handleActivateSecret = async () => {
+    const secret = databaseSecret.trim();
+    if (!secret) {
+      setFixError('Mangyaring ilagay ang iyong Firebase Database Secret bago i-activate.');
+      return;
+    }
+
+    setIsActivating(true);
+    setFixError(null);
+    setActivateSuccess(false);
+    setTestResult(null);
+
+    const start = performance.now();
+    try {
+      // 1. Direct validation against Firebase RTDB REST API
+      const baseUrl = defaultUrl.replace(/\/$/, '');
+      const probeRes = await fetch(`${baseUrl}/users.json?shallow=true&auth=${encodeURIComponent(secret)}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      const latency = Math.round(performance.now() - start);
+
+      if (!probeRes.ok && probeRes.status === 401) {
+        throw new Error('Hindi tinanggap ng Firebase ang Secret Key (HTTP 401 Unauthorized). Pakisuri kung tama ang kinopya mula sa Firebase Console -> Project Settings -> Service accounts -> Database secrets.');
+      }
+
+      // 2. Persist in browser storage across sessions and reloads
+      localStorage.setItem('pos_firebase_auth_token', secret);
+      localStorage.setItem('firebase_database_secret', secret);
+      sessionStorage.setItem('pos_firebase_auth_token', secret);
+      setIsSecretSaved(true);
+      setActivateSuccess(true);
+
+      // 3. Reconnect real-time stream with authenticated token
+      realtimeSync.restart();
+
+      // 4. Update test result banner
+      setTestResult({
+        success: true,
+        latency,
+        message: `Tagumpay na Na-activate! Authenticated sa Firebase RTDB (${latency}ms). Gumagana na ang lahat ng sync at rules kahit walang server .env file!`,
+        timestamp: Date.now()
+      });
+
+      // 5. Re-run scan to update probe status
+      await runScan();
+
+      setTimeout(() => setActivateSuccess(false), 5000);
+    } catch (err: any) {
+      console.error('Activate secret error:', err);
+      setFixError(err.message || 'Error sa pag-activate ng Secret Key sa frontend.');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const handleClearSecret = () => {
+    if (confirm('Sigurado ka bang nais mong tanggalin ang Secret Key sa browser ng device na ito?')) {
+      localStorage.removeItem('pos_firebase_auth_token');
+      localStorage.removeItem('firebase_database_secret');
+      sessionStorage.removeItem('pos_firebase_auth_token');
+      setDatabaseSecret('');
+      setIsSecretSaved(false);
+      setTestResult(null);
+      setFixSuccess(false);
+      realtimeSync.restart();
+      runScan();
+    }
+  };
+
+  const handleTestConnection = async () => {
+    const secret = databaseSecret.trim() || localStorage.getItem('pos_firebase_auth_token') || '';
+    if (!secret) {
+      setFixError('Walang Secret Key na masusubukan. Mag-type o mag-save muna ng secret key.');
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+    setFixError(null);
+
+    const start = performance.now();
+    try {
+      const baseUrl = defaultUrl.replace(/\/$/, '');
+      const res = await fetch(`${baseUrl}/users.json?shallow=true&auth=${encodeURIComponent(secret)}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      const latency = Math.round(performance.now() - start);
+
+      if (res.ok) {
+        setTestResult({
+          success: true,
+          latency,
+          message: `Konektado at Awtentikado! Tumugon ang Firebase sa loob ng ${latency}ms (HTTP 200 OK). Buong access sa database ay aktibo nang direkta sa frontend.`,
+          timestamp: Date.now()
+        });
+      } else {
+        setTestResult({
+          success: false,
+          latency,
+          message: `Tinanggihan ng Firebase ang Secret Key (HTTP ${res.status}). Pakisuri ang kinopyang secret key.`,
+          timestamp: Date.now()
+        });
+      }
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: `Hindi makakonekta sa Firebase: ${err.message || 'Network error'}.`,
+        timestamp: Date.now()
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const handleFixNow = async () => {
     setIsApplyingFix(true);
     setFixError(null);
     setFixSuccess(false);
 
+    const secret = databaseSecret.trim() || localStorage.getItem('pos_firebase_auth_token') || '';
+
+    if (!secret) {
+      setFixError('Database Secret required for 1-click automatic update. Alternatively, copy the Production Rules below and publish them in your Firebase Rules Console.');
+      setShowRulesPreview(true);
+      setIsApplyingFix(false);
+      return;
+    }
+
+    // Automatically ensure it is saved in frontend
+    localStorage.setItem('pos_firebase_auth_token', secret);
+    localStorage.setItem('firebase_database_secret', secret);
+    setIsSecretSaved(true);
+
+    let applied = false;
+    let clientErr = '';
+
+    // Step 1: Direct Client-side REST Update (Runs 100% in browser, requires no server or .env file!)
     try {
-      // 1. If secret is entered or saved, attempt programmatic update via API
-      if (databaseSecret.trim()) {
-        localStorage.setItem('pos_firebase_auth_token', databaseSecret.trim());
-        
+      const rulesUrl = `${defaultUrl.replace(/\/$/, '')}/.settings/rules.json?auth=${encodeURIComponent(secret)}`;
+      const directRes = await fetch(rulesUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(SECURE_PRODUCTION_RULES)
+      });
+
+      if (directRes.ok) {
+        applied = true;
+      } else {
+        const errText = await directRes.text();
+        clientErr = `Direct response (${directRes.status}): ${errText}`;
+      }
+    } catch (e: any) {
+      clientErr = e?.message || 'Direct network error';
+    }
+
+    // Step 2: Fallback to server API if available
+    if (!applied) {
+      try {
         const response = await fetch('/api/update-firebase-rules', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            secret: databaseSecret.trim(),
+            secret,
             databaseUrl: defaultUrl,
             rules: SECURE_PRODUCTION_RULES
           })
         });
 
         const data = await response.json();
-        if (!response.ok || !data.success) {
-          throw new Error(data?.error || 'Failed to update rules programmatically via Database Secret.');
+        if (response.ok && data.success) {
+          applied = true;
         }
-
-        setFixSuccess(true);
-        await runScan();
-        return;
+      } catch (apiErr: any) {
+        console.warn('API fallback error:', apiErr);
       }
-
-      // 2. Direct client-side PUT if secret provided
-      const secret = databaseSecret.trim();
-      if (!secret) {
-        // Prompt for secret or fallback to copying rules
-        setFixError('Database Secret required for 1-click automatic update. Alternatively, copy the Production Rules below and publish them in your Firebase Rules Console.');
-        setShowRulesPreview(true);
-        return;
-      }
-    } catch (err: any) {
-      console.error('Fix now error:', err);
-      setFixError(err.message || 'Error occurred while applying production rules.');
-    } finally {
-      setIsApplyingFix(false);
     }
+
+    if (applied) {
+      setFixSuccess(true);
+      realtimeSync.restart();
+      await runScan();
+    } else {
+      setFixError(`Hindi ma-update ang rules gamit ang Secret Key (${clientErr}). Maaari mong kopyahin ang Production Rules JSON sa ibaba at i-paste nang direkta sa Firebase Rules Console.`);
+    }
+
+    setIsApplyingFix(false);
   };
 
   const handleCopyProductionRules = () => {
@@ -456,16 +616,30 @@ export function DatabaseSecurity() {
         </div>
       </div>
 
-      {/* Programmatic Secret Key Configuration & Fix Now Section */}
+      {/* Frontend Secret Key Configuration & Direct REST Rules Management */}
       <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 md:p-10 border border-gray-100 dark:border-gray-800 shadow-xl space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h4 className="text-xl font-black text-gray-950 dark:text-white flex items-center gap-2">
-              <Key className="w-5 h-5 text-orange-600" />
-              Programmatic Rules Management
-            </h4>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">
-              Provide your Firebase Database Secret to allow this app to programmatically apply and audit production rules with a single click.
+        
+        {/* Card Header & Status Badge */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100 dark:border-gray-800">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="bg-orange-100 dark:bg-orange-950/60 p-2.5 rounded-xl text-orange-600 dark:text-orange-400">
+                <Key className="w-5 h-5" />
+              </div>
+              <h4 className="text-xl font-black text-gray-950 dark:text-white tracking-tight">
+                Frontend Secret Key Manager
+              </h4>
+              <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5 ${
+                isSecretSaved
+                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                  : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${isSecretSaved ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                {isSecretSaved ? 'Naka-activate sa Frontend (Browser Storage)' : 'Hindi pa Naka-activate'}
+              </span>
+            </div>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-relaxed pt-1">
+              <strong>Oo! Pwedeng i-activate ang secret key sa frontend lamang.</strong> Hindi na kailangan ng server <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[11px] font-mono">.env</code> file. Naka-save ito sa local storage ng browser kaya gagana ang multi-device sync, cloud backup, at rule deployment kahit naka-deploy na ang app sa web (Vercel, Cloud Run, PWA).
             </p>
           </div>
 
@@ -473,44 +647,171 @@ export function DatabaseSecurity() {
             href="https://console.firebase.google.com/project/database-for-inventory-88e9f/settings/serviceaccounts/databasesecrets"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-black text-orange-600 dark:text-orange-400 hover:underline inline-flex items-center gap-1.5 shrink-0"
+            className="text-xs font-black text-orange-600 dark:text-orange-400 hover:underline inline-flex items-center gap-1.5 shrink-0 bg-orange-50 dark:bg-orange-950/40 px-3.5 py-2 rounded-xl border border-orange-200 dark:border-orange-800"
           >
-            Find Database Secret in Firebase Console <ExternalLink className="w-3.5 h-3.5" />
+            Kuhanin ang Secret Key sa Firebase Console <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
 
-        <div className="space-y-3">
+        {/* Input & Activation Controls */}
+        <div className="space-y-4">
           <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">
-            Firebase Database Secret Key (Optional for Automatic Updates)
+            Firebase Realtime Database Secret Key
           </label>
-          <div className="flex gap-3">
-            <input
-              type="password"
-              value={databaseSecret}
-              onChange={(e) => setDatabaseSecret(e.target.value)}
-              placeholder="e.g. AIzaSy... or Firebase Database Secret"
-              className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-3.5 text-xs font-bold text-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-            />
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <input
+                type={showSecret ? 'text' : 'password'}
+                value={databaseSecret}
+                onChange={(e) => {
+                  setDatabaseSecret(e.target.value);
+                  setActivateSuccess(false);
+                }}
+                placeholder="I-paste dito ang Database Secret (Hal. gQAAAAA... o AIzaSy...)"
+                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-3.5 pr-12 text-xs font-mono font-bold text-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecret(!showSecret)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer p-1"
+                title={showSecret ? 'Itago ang secret' : 'Ipakita ang secret'}
+              >
+                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
 
             <button
               type="button"
-              onClick={handleFixNow}
-              disabled={isApplyingFix}
-              className="px-6 py-3.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-orange-600/20 disabled:opacity-50 shrink-0"
+              onClick={handleActivateSecret}
+              disabled={isActivating || !databaseSecret.trim()}
+              className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-600/20 disabled:opacity-50 shrink-0"
             >
-              {isApplyingFix ? (
+              {isActivating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Applying...
+                  Ina-activate...
                 </>
               ) : (
                 <>
-                  <Zap className="w-4 h-4 fill-white" />
-                  Apply Secure Defaults
+                  <Sparkles className="w-4 h-4" />
+                  I-activate sa Frontend
                 </>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={isTesting || !databaseSecret.trim()}
+              className="px-5 py-3.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Sinusubukan...
+                </>
+              ) : (
+                <>
+                  <Wifi className="w-4 h-4" />
+                  I-test ang Koneksyon
+                </>
+              )}
+            </button>
+
+            {isSecretSaved && (
+              <button
+                type="button"
+                onClick={handleClearSecret}
+                className="px-4 py-3.5 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-2xl text-xs font-black transition-all cursor-pointer shrink-0"
+                title="Tanggalin ang secret key sa browser storage"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
+
+          {/* Test & Activation Feedback */}
+          <AnimatePresence>
+            {activateSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="p-4 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 rounded-2xl flex items-center gap-3 border border-emerald-300 dark:border-emerald-800 text-xs font-bold"
+              >
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="font-black uppercase tracking-wider block">Secret Key Na-activate sa Frontend!</span>
+                  Naka-save na ito sa device na ito. Hindi na kailangan ng kahit anong <code className="bg-emerald-200 dark:bg-emerald-900 px-1 py-0.5 rounded">.env</code> file sa server kapag naka-deploy na ang app.
+                </div>
+              </motion.div>
+            )}
+
+            {testResult && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className={`p-4 rounded-2xl flex items-center gap-3 border text-xs font-bold ${
+                  testResult.success
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800'
+                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
+                }`}
+              >
+                {testResult.success ? (
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black uppercase tracking-wider">
+                      {testResult.success ? 'Koneksyon Tagumpay' : 'Nabigong Kumonekta'}
+                    </span>
+                    {testResult.latency !== undefined && (
+                      <span className="text-[10px] bg-blue-100 dark:bg-blue-900 px-2 py-0.5 rounded-full font-mono font-bold">
+                        {testResult.latency}ms latency
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-medium mt-0.5">{testResult.message}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* 1-Click Production Rules Update Banner */}
+        <div className="p-6 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-3xl border border-orange-200 dark:border-orange-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h5 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-2">
+              <Zap className="w-4 h-4 text-orange-600 fill-orange-600" />
+              1-Click Client-Side Production Rules Update
+            </h5>
+            <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+              Gamit ang na-activate na Secret Key, direktang mai-a-apply ang Secure Production Rules sa Firebase RTDB mula sa browser (zero-backend execution).
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleFixNow}
+            disabled={isApplyingFix}
+            className="px-6 py-3.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-orange-600/20 disabled:opacity-50 shrink-0"
+          >
+            {isApplyingFix ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Ina-apply sa Firebase...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4 fill-white" />
+                Apply Secure Defaults
+              </>
+            )}
+          </button>
         </div>
 
         {/* Action Row: Direct Copy & Firebase Console Link */}

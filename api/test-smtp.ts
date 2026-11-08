@@ -59,12 +59,13 @@ export default async function handler(req: any, res: any) {
 
   try {
     const body = await parseBody(req);
-    const { senderEmail, appPassword } = body || {};
+    const senderEmail = (body?.senderEmail || process.env.SMTP_SENDER_EMAIL || process.env.GMAIL_USER || '').trim();
+    const appPassword = (body?.appPassword || process.env.SMTP_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
 
     if (!senderEmail || !appPassword) {
       return res.status(400).json({
         success: false,
-        error: 'Gmail address and Google App Password are required.'
+        error: 'Gmail address and Google App Password are required. Either configure them in Settings -> Email & Reports or set SMTP_SENDER_EMAIL and SMTP_APP_PASSWORD in Vercel environment variables.'
       });
     }
 
@@ -73,9 +74,12 @@ export default async function handler(req: any, res: any) {
 
     const transporter = createTransport({
       service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
-        user: senderEmail.trim(),
-        pass: appPassword.replace(/\s+/g, ''),
+        user: senderEmail,
+        pass: appPassword,
       },
       connectionTimeout: 10000,
       greetingTimeout: 8000,
@@ -85,13 +89,17 @@ export default async function handler(req: any, res: any) {
     await transporter.verify();
     return res.status(200).json({
       success: true,
-      message: 'SMTP credentials verified successfully! Google App Password is ready.'
+      message: 'SMTP credentials verified successfully! Google App Password is authenticated and ready to dispatch reports on Vercel.'
     });
   } catch (err: any) {
     console.error('[API Test SMTP Error]:', err);
+    let errorDetail = err?.message || 'Failed to authenticate with Gmail SMTP.';
+    if (errorDetail.includes('535') || errorDetail.includes('BadCredentials') || errorDetail.includes('Username and Password not accepted')) {
+      errorDetail = 'Hindi tinanggap ng Gmail ang credentials (535 Bad Credentials). Siguraduhing may 2-Step Verification ang Google account at gumamit ng 16-character Google App Password (hindi regular account password).';
+    }
     return res.status(400).json({
       success: false,
-      error: err?.message || 'Failed to authenticate with Gmail SMTP. Please check your App Password.'
+      error: errorDetail
     });
   }
 }

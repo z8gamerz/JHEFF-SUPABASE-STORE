@@ -18,10 +18,16 @@ function getRtdbUrl(): string {
     'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
 }
 
-export function getAuthQuery(): string {
+export function getAuthToken(): string {
   if (typeof window === 'undefined') return '';
-  const token = localStorage.getItem('pos_firebase_auth_token') || 
-                (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || '';
+  return localStorage.getItem('pos_firebase_auth_token') || 
+         localStorage.getItem('firebase_database_secret') ||
+         sessionStorage.getItem('pos_firebase_auth_token') ||
+         (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || '';
+}
+
+export function getAuthQuery(): string {
+  const token = getAuthToken();
   return token ? `?auth=${encodeURIComponent(token.trim())}` : '';
 }
 

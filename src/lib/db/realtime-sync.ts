@@ -151,6 +151,14 @@ class RealtimeSyncManager {
     this.startHeartbeat();
   }
 
+  public restart() {
+    this.disconnect();
+    if (typeof window !== 'undefined') {
+      this.isStarted = true;
+      this.connect();
+    }
+  }
+
   public stop() {
     this.isStarted = false;
     this.disconnect();
@@ -187,7 +195,13 @@ class RealtimeSyncManager {
     this.setStatus('connecting');
 
     try {
-      const token = typeof window !== 'undefined' ? (localStorage.getItem('pos_firebase_auth_token') || '') : '';
+      const token = typeof window !== 'undefined' ? (
+        localStorage.getItem('pos_firebase_auth_token') || 
+        localStorage.getItem('firebase_database_secret') ||
+        sessionStorage.getItem('pos_firebase_auth_token') ||
+        (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || 
+        ''
+      ) : '';
       const authQuery = token ? `?auth=${encodeURIComponent(token.trim())}` : '';
       const url = `${this.getBaseUrl()}/.json${authQuery}`;
       const es = new EventSource(url);
