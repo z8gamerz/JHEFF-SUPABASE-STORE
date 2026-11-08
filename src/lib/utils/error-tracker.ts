@@ -18,12 +18,11 @@ export function initErrorTracker() {
     const errorMsg = event.message || 'Unknown window error';
     const source = `${event.filename || 'unknown'}:${event.lineno || 0}:${event.colno || 0}`;
 
-    // Ignore known Vite dev-server HMR / WebSocket proxy communication errors
+    // Filter out internal Vite HMR / dev websocket artifacts in iFrame preview
     if (
-      errorMsg.includes("reading 'send'") || 
-      errorMsg.includes('WebSocket') || 
-      source.includes('@vite/client') ||
-      errorMsg.includes('vite:ws')
+      errorMsg.includes("reading 'send'") ||
+      errorMsg.includes('WebSocket') ||
+      (event.filename && event.filename.includes('@vite'))
     ) {
       return;
     }
@@ -42,12 +41,11 @@ export function initErrorTracker() {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason instanceof Error ? event.reason.message : String(event.reason);
 
-    // Ignore known Vite dev-server HMR / WebSocket proxy communication errors
+    // Filter out internal Vite HMR / dev websocket artifacts in iFrame preview
     if (
       reason.includes("reading 'send'") || 
       reason.includes('WebSocket') || 
-      reason.includes('@vite/client') ||
-      reason.includes('transport was disconnected')
+      reason.includes('@vite')
     ) {
       return;
     }

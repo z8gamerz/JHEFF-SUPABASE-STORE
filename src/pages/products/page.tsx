@@ -4,12 +4,13 @@ import { useState, useMemo, useDeferredValue } from 'react';
 import { useProducts } from '@/lib/hooks/use-products';
 import { useBranches } from '@/lib/hooks/use-branches';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useCategories } from '@/lib/hooks/use-categories';
 import { Header } from '@/components/layout/header';
 import { ProductList } from '@/components/inventory/product-list';
 import { ProductForm } from '@/components/inventory/product-form';
 import { CsvImport } from '@/components/inventory/csv-import';
 import { ConfirmModal } from '@/components/ui/modal';
-import { Plus, Search, Package, ArrowLeft, Upload, Download, ShieldAlert, AlertTriangle, AlertCircle, ArrowRight } from 'lucide-react';
+import { Plus, Search, Package, ArrowLeft, Upload, Download, ShieldAlert, AlertTriangle, AlertCircle, ArrowRight, FolderTree, Layers, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { Product } from '@/lib/db/idb';
 import { AuthGuard } from '@/components/auth/auth-guard';
@@ -18,10 +19,12 @@ export default function ProductsPage() {
   const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { isAdmin, isCashier } = useAuth();
   const { products, loading, addProduct, addProducts, updateProduct, deleteProduct } = useProducts(currentBranchId || undefined);
+  const { categories } = useCategories();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(() => {
@@ -45,6 +48,24 @@ export default function ProductsPage() {
 
   const deferredSearch = useDeferredValue(searchQuery);
 
+  // Accurate Inventory Metrics strictly based on actual inventory
+  const inventoryStats = useMemo(() => {
+    const totalItems = products.length;
+    // Total Inventory Value at Retail Price (Benta Value)
+    const totalInventoryValue = products.reduce((sum, p) => sum + ((Number(p.price) || 0) * (Number(p.stock) || 0)), 0);
+    // Total Inventory Value at Cost (Puhunan Value)
+    const totalCostValue = products.reduce((sum, p) => sum + ((Number(p.cost) || 0) * (Number(p.stock) || 0)), 0);
+    // Total physical units on hand
+    const totalStockQty = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+    return {
+      totalItems,
+      totalInventoryValue,
+      totalCostValue,
+      totalStockQty: Math.round(totalStockQty * 1000) / 1000,
+      totalCategories: categories.length,
+    };
+  }, [products, categories]);
+
   const lowStockCount = useMemo(() => {
     return products.filter(p => {
       const threshold = p.minStock !== undefined && p.minStock > 0 ? p.minStock : lowStockThreshold;
@@ -59,10 +80,14 @@ export default function ProductsPage() {
   const filteredProducts = useMemo(() => {
     const q = deferredSearch.toLowerCase().trim();
     let list = products;
+    if (selectedCategory && selectedCategory !== 'ALL') {
+      list = list.filter(p => (p.category || 'Others').trim().toLowerCase() === selectedCategory.toLowerCase());
+    }
     if (q) {
       list = list.filter(p => 
         p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+        p.category.toLowerCase().includes(q) ||
+        (p.barcode && p.barcode.toLowerCase().includes(q))
       );
     }
     if (showLowStockOnly) {
@@ -72,7 +97,7 @@ export default function ProductsPage() {
       });
     }
     return list;
-  }, [products, deferredSearch, showLowStockOnly, lowStockThreshold]);
+  }, [products, deferredSearch, selectedCategory, showLowStockOnly, lowStockThreshold]);
 
   const isAuthorized = !!currentBranchId && isBranchAuthorized(currentBranchId);
 
@@ -172,13 +197,20 @@ export default function ProductsPage() {
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Inventory</h2>
-                <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Manage your store products and stock.</p>
+                <h2 className="text-3xl font-black text-gray-950 dark:text-white tracking-tight">Inventory</h2>
+                <p className="text-gray-600 dark:text-gray-300 font-bold text-sm mt-0.5">Manage your store products and stock.</p>
               </div>
             </div>
   
             {!isCashier && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Link
+                  href="/categories"
+                  className="bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-black px-5 py-4 rounded-2xl flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-700 shadow-sm transition-all active:scale-95 cursor-pointer text-xs uppercase tracking-wider"
+                >
+                  <FolderTree className="w-5 h-5 text-emerald-600" />
+                  <span>Categories</span>
+                </Link>
                 <button
                   onClick={handleExport}
                   className="bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white font-black px-6 py-4 rounded-2xl flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-700 shadow-sm transition-all active:scale-95 cursor-pointer text-xs uppercase tracking-wider"
@@ -205,6 +237,74 @@ export default function ProductsPage() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Inventory Overview Metrics Bar strictly computed from current inventory */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <Link
+              href="/categories"
+              className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs hover:border-emerald-500 transition-all group"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-2xl group-hover:scale-105 transition-transform">
+                  <FolderTree className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Categories</span>
+                </div>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight">
+                {inventoryStats.totalCategories}
+              </p>
+              <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">Manage Categories →</p>
+            </Link>
+
+            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2.5 bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 rounded-2xl">
+                  <Package className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Catalog Products</span>
+                </div>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight">
+                {inventoryStats.totalItems}
+              </p>
+              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">Unique items in store</p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2.5 bg-orange-100 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300 rounded-2xl">
+                  <TrendingUp className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Total Stock Value</span>
+                </div>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">
+                ₱{inventoryStats.totalInventoryValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">
+                Puhunan: ₱{inventoryStats.totalCostValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2.5 bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 rounded-2xl">
+                  <Layers className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Units / Quantity</span>
+                </div>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight">
+                {inventoryStats.totalStockQty.toLocaleString()}
+              </p>
+              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">Total physical stock on hand</p>
+            </div>
           </div>
   
           {isCashier && (
@@ -269,7 +369,7 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* Controls: Search & Definable Low Stock Threshold */}
+          {/* Controls: Search, Category Filter & Definable Low Stock Threshold */}
           <div className="flex flex-col lg:flex-row gap-4 mb-8">
             {/* Search Input */}
             <div className="relative flex-1">
@@ -281,6 +381,26 @@ export default function ProductsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-14 pl-12 pr-4 bg-white dark:bg-gray-900 text-gray-950 dark:text-white rounded-2xl border-2 border-gray-300 dark:border-gray-700 shadow-sm focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none transition-all font-bold placeholder:text-gray-500 dark:placeholder:text-gray-400"
               />
+            </div>
+
+            {/* Category Filter Selector - Fetched from Category Page */}
+            <div className="sm:w-60 shrink-0">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full h-14 px-4 bg-white dark:bg-gray-900 text-gray-950 dark:text-white rounded-2xl border-2 border-gray-300 dark:border-gray-700 shadow-sm focus:border-orange-500 font-bold text-xs sm:text-sm outline-none cursor-pointer"
+                title="Filter by category fetched from Category Page"
+              >
+                <option value="ALL">All Categories ({products.length})</option>
+                {categories.map((c) => {
+                  const count = products.filter(p => (p.category || 'Others').trim().toLowerCase() === c.name.toLowerCase()).length;
+                  return (
+                    <option key={c.id || c.name} value={c.name}>
+                      {c.name} ({count})
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
             {/* Definable Low Stock Threshold Selector */}
@@ -373,6 +493,7 @@ export default function ProductsPage() {
           ) : (
             <ProductList 
               products={filteredProducts} 
+              categories={categories}
               lowStockThreshold={lowStockThreshold}
               onEdit={isAdmin ? handleEdit : undefined} 
               onDelete={isAdmin ? handleDelete : undefined} 

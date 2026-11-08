@@ -576,15 +576,15 @@ export default function CreditReportPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl sm:text-4xl font-black text-gray-950 dark:text-white tracking-tight">
                     Credit & Receivables Report
                   </h1>
-                  <span className="px-3 py-1 bg-purple-100 dark:bg-purple-950/80 text-purple-900 dark:text-purple-300 rounded-full text-xs font-black uppercase tracking-wider border border-purple-200 dark:border-purple-800 shrink-0">
+                  <span className="px-3 py-1 bg-purple-100 dark:bg-purple-950/80 text-purple-900 dark:text-purple-300 rounded-full text-xs font-black uppercase tracking-wider border border-purple-200 dark:border-purple-800">
                     Accounts Receivable
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">
+                <p className="text-gray-600 dark:text-gray-300 font-bold text-sm mt-1">
                   Track outstanding balances, collection rates, debt aging, and customer settlement logs.
                 </p>
               </div>

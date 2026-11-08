@@ -391,24 +391,24 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="bg-white dark:bg-gray-900 rounded-3xl sm:rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[94vh] transition-colors"
+        className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[92vh] transition-colors"
       >
         {/* Header */}
-        <div className="p-4 sm:p-6 md:p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/40">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-orange-600 text-white flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-none shrink-0">
-              <Receipt className="w-5 h-5 sm:w-6 sm:h-6" />
+        <div className="p-6 sm:p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/40">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-orange-600 text-white flex items-center justify-center shadow-lg shadow-orange-200 dark:shadow-none">
+              <Receipt className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase">
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight uppercase">
                 Complete Checkout
               </h2>
-              <p className="text-[10px] sm:text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">
+              <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">
                 {itemCount} item{itemCount !== 1 ? 's' : ''} in cart
               </p>
             </div>
@@ -417,21 +417,21 @@ export function CheckoutModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 sm:p-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl sm:rounded-2xl transition-all cursor-pointer"
+            className="p-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all cursor-pointer"
           >
-            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Content body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8">
           {/* Total Due Banner */}
-          <div className="p-4 sm:p-6 md:p-7 rounded-2xl sm:rounded-[2rem] bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-xl shadow-orange-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="p-6 sm:p-7 rounded-[2rem] bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-xl shadow-orange-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-orange-100">
+              <span className="text-[11px] font-black uppercase tracking-widest text-orange-100">
                 Total Amount Due
               </span>
-              <p className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight mt-1 break-words">
+              <p className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight mt-1 break-words">
                 ₱{total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
               </p>
             </div>

@@ -109,8 +109,8 @@ export default function TicketHistoryPage() {
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Ticket History</h2>
-                <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">View and manage past transactions</p>
+                <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Ticket History</h2>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">View and manage past transactions</p>
               </div>
             </div>
 

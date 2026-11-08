@@ -119,8 +119,8 @@ export default function RestockingPage() {
                   <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
                 </Link>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Restocking</h1>
-                  <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Manage suppliers and record inventory stock-in</p>
+                  <h1 className="text-4xl md:text-5xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight mb-2">Restocking</h1>
+                  <p className="text-base sm:text-lg text-gray-800 dark:text-gray-200 font-bold">Manage suppliers and record inventory stock-in</p>
                 </div>
               </div>
   

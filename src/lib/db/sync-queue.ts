@@ -278,6 +278,7 @@ export async function pullSync(): Promise<void> {
   const storesToSync = [
     STORES.STORE_INFO,
     STORES.BRANCHES,
+    STORES.CATEGORIES,
     STORES.PRODUCTS,
     STORES.TRANSACTIONS,
     STORES.CUSTOMERS,

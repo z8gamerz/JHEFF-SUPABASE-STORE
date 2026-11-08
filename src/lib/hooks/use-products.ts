@@ -20,7 +20,18 @@ export function useProducts(branchId?: string) {
         data = await productService.getAll();
       }
       
-      setProducts(data.sort((a, b) => b.createdAt - a.createdAt));
+      // Strict deduplication by product id to ensure no duplicated items or quantities
+      const uniqueMap = new Map<string, Product>();
+      for (const p of data) {
+        if (!p || p.isDeleted) continue;
+        const existing = uniqueMap.get(p.id);
+        if (!existing || (p.updatedAt || 0) > (existing.updatedAt || 0)) {
+          uniqueMap.set(p.id, p);
+        }
+      }
+
+      const cleanProducts = Array.from(uniqueMap.values()).sort((a, b) => b.createdAt - a.createdAt);
+      setProducts(cleanProducts);
     } catch (error) {
       console.error('Failed to fetch products:', error);
     } finally {

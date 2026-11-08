@@ -45,8 +45,8 @@ export default function SignupPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-orange-600 rounded-[2rem] text-white shadow-2xl shadow-orange-200 dark:shadow-none mb-6">
             <Store className="w-10 h-10" />
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Setup POS</h1>
-          <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Create the administrator account</p>
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-tight">Setup POS</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium mt-2">Create the administrator account</p>
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-8 md:p-12 shadow-2xl border border-gray-100 dark:border-gray-800 transition-colors">

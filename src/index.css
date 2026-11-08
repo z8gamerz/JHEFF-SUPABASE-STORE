@@ -10,23 +10,9 @@
 @layer base {
   html {
     min-height: 100%;
-    font-size: clamp(14px, 0.9rem + 0.25vw, 16px);
     transition: background-color 0.2s ease, color 0.2s ease;
     background-color: #f8fafc;
     color: #090d16;
-    -webkit-text-size-adjust: 100%;
-  }
-
-  html[data-device="mobile"] {
-    font-size: 14px;
-  }
-
-  html[data-device="tablet"] {
-    font-size: 15px;
-  }
-
-  html[data-device="desktop"] {
-    font-size: 16px;
   }
   
   html.dark {
@@ -163,24 +149,6 @@
     color: #f1f5f9;
   }
 
-  /* Universal Page Name Section - identical size across all pages */
-  .page-title-heading,
-  [data-page-title="true"] {
-    font-size: clamp(1.5rem, 3.2vw, 2.25rem) !important;
-    font-weight: 900 !important;
-    line-height: 1.15 !important;
-    letter-spacing: -0.025em !important;
-    text-transform: uppercase !important;
-    overflow-wrap: break-word !important;
-  }
-
-  .page-title-subheading {
-    font-size: clamp(0.75rem, 1.2vw, 0.875rem) !important;
-    font-weight: 700 !important;
-    line-height: 1.4 !important;
-    letter-spacing: 0.025em !important;
-  }
-
   /* Explicit light card protection: if an element has an explicit light background in dark mode, keep text dark */
   .dark .bg-white:not([class*="dark:bg-"]),
   .dark .bg-gray-50:not([class*="dark:bg-"]),
@@ -198,53 +166,27 @@
     color: #0f172a !important;
   }
 
-  /* Receipt Printing: Continuous roll / Multi-page, NEVER CUT OFF no matter how long */
   @media print {
-    html, body {
-      height: auto !important;
-      min-height: 100% !important;
-      max-height: none !important;
-      overflow: visible !important;
-      background: #ffffff !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    body.printing-receipt *,
-    body:has(#printable-receipt) * {
+    body * {
       visibility: hidden;
     }
-
-    body.printing-receipt #printable-receipt,
-    body.printing-receipt #printable-receipt *,
-    body:has(#printable-receipt) #printable-receipt,
-    body:has(#printable-receipt) #printable-receipt * {
-      visibility: visible !important;
+    #printable-receipt,
+    #printable-receipt * {
+      visibility: visible;
     }
-
-    body.printing-receipt #printable-receipt,
-    body:has(#printable-receipt) #printable-receipt {
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 80mm !important;
-      max-width: 100% !important;
-      height: auto !important;
-      min-height: auto !important;
-      max-height: none !important;
-      overflow: visible !important;
-      page-break-inside: auto !important;
-      break-inside: auto !important;
-      margin: 0 !important;
-      padding: 3mm 2mm !important;
-      background: #ffffff !important;
-      color: #000000 !important;
+    #printable-receipt {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 80mm;
+      margin: 0;
+      padding: 0;
+      background: white !important;
+      color: black !important;
       box-shadow: none !important;
       border: none !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      visibility: visible !important;
     }
-
     @page {
       size: 80mm auto;
       margin: 0;

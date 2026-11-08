@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { StoreInfo, Product, Branch } from '@/lib/db/idb';
+import { StoreInfo, Product, Branch, ReceiptSettings } from '@/lib/db/idb';
 import { storeService } from '@/lib/services/store-service';
 import { productService } from '@/lib/services/product-service';
 import { branchService } from '@/lib/services/branch-service';
@@ -19,6 +19,7 @@ interface StoreContextType {
   loading: boolean;
   refreshStore: () => Promise<void>;
   updateStore: (name: string, address?: string, tin?: string, taxType?: 'VAT' | 'NON-VAT', vatRate?: number) => Promise<void>;
+  updateReceiptSettings: (settings: Partial<ReceiptSettings>) => Promise<void>;
   getNextORNumber: () => Promise<string>;
   products: Product[];
   allProducts: Product[];
@@ -309,11 +310,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       taxType,
       vatRate,
       lastORNumber: currentStore?.lastORNumber || 0,
+      receiptSettings: currentStore?.receiptSettings,
       updatedAt: Date.now(),
     };
     await storeService.update(newStore);
     await auditService.log('STORE_SETTINGS_UPDATE', JSON.stringify({ name, taxType, tin }));
     await loadStore();
+  };
+
+  const updateReceiptSettings = async (settings: Partial<ReceiptSettings>) => {
+    const currentStore = (await storeService.getById('main_config')) || store;
+    const existingReceiptSettings = currentStore?.receiptSettings || {};
+    const mergedReceiptSettings: ReceiptSettings = {
+      ...existingReceiptSettings,
+      ...settings,
+      updatedAt: Date.now(),
+    };
+
+    const updatedStore: StoreInfo = {
+      ...(currentStore || {
+        id: 'main_config',
+        name: 'My Store',
+        currency: 'PHP',
+        taxType: 'NON-VAT',
+        vatRate: 12,
+        lastORNumber: 0,
+      }),
+      receiptSettings: mergedReceiptSettings,
+      updatedAt: Date.now(),
+    };
+
+    await storeService.update(updatedStore);
+    await auditService.log('RECEIPT_SETTINGS_UPDATE', JSON.stringify(settings));
+    await loadStore(true);
   };
 
   const getNextORNumber = async () => {
@@ -344,6 +373,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       loading, 
       refreshStore: () => loadStore(true),
       updateStore, 
+      updateReceiptSettings,
       getNextORNumber, 
       products: filteredProducts, 
       allProducts: products,

@@ -148,8 +148,8 @@ export default function ReportsPage() {
                   <ArrowLeft className="w-6 h-6" />
                 </Link>
                 <div>
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Reports Dashboard</h2>
-                  <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Analyze your store performance, credit collections, and sales trends.</p>
+                  <h2 className="text-4xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight">Reports Dashboard</h2>
+                  <p className="text-lg text-gray-600 dark:text-gray-300 font-bold">Analyze your store performance, credit collections, and sales trends.</p>
                   <div className="flex flex-wrap items-center gap-2 mt-4">
                     <Link 
                       href="/reports/daily"

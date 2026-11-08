@@ -166,10 +166,10 @@ export default function DailySummaryPage() {
               <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
             </Link>
             <div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-950 dark:text-white tracking-tighter leading-tight">
                 Daily Summary
               </h2>
-              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 flex items-center gap-2 mt-0.5 page-title-subheading">
+              <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 font-bold flex items-center gap-2 mt-1">
                 <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400 stroke-[2.5]" />
                 {new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>

@@ -28,13 +28,15 @@ import {
   ShieldCheck,
   ShieldAlert,
   Database,
-  Mail
+  Mail,
+  Printer
 } from 'lucide-react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { UserManagement } from '@/components/admin/user-management';
 import { SystemHealthDashboard } from '@/components/admin/system-health';
 import { EmailSettings } from '@/components/settings/email-settings';
+import { ReceiptSettings } from '@/components/settings/receipt-settings';
 import { DatabaseSecurity } from '@/components/admin/database-security';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { clearDatabaseAll } from '@/lib/db/sync-queue';
@@ -44,7 +46,7 @@ export default function SettingsPage() {
   const { store, updateStore, loading } = useStore();
   const { isAdmin } = useAuth();
   const { theme, isDark, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'business' | 'users' | 'email' | 'security' | 'system'>('business');
+  const [activeTab, setActiveTab] = useState<'business' | 'receipt' | 'users' | 'email' | 'security' | 'system'>('business');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [tin, setTin] = useState('');
@@ -117,8 +119,8 @@ export default function SettingsPage() {
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-950 dark:text-white tracking-tight uppercase leading-tight page-title-heading">Settings</h1>
-                <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5 page-title-subheading">Manage your business configuration, staff permissions, and system survival.</p>
+                <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter leading-tight">Settings</h1>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">Manage your business configuration, staff permissions, and system survival.</p>
               </div>
             </div>
 
@@ -135,6 +137,18 @@ export default function SettingsPage() {
               >
                 <Building2 className="w-4 h-4 text-orange-600" />
                 Store &amp; Tax
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('receipt')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  activeTab === 'receipt'
+                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <Printer className="w-4 h-4 text-emerald-600" />
+                Receipt
               </button>
               <button
                 type="button"
@@ -442,7 +456,17 @@ export default function SettingsPage() {
             </motion.div>
           )}
 
-          {/* TAB 2: USERS & PERMISSIONS */}
+          {/* TAB 2: RECEIPT SETTINGS */}
+          {activeTab === 'receipt' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <ReceiptSettings />
+            </motion.div>
+          )}
+
+          {/* TAB 3: USERS & PERMISSIONS */}
           {activeTab === 'users' && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
