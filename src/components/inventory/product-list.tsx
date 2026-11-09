@@ -15,7 +15,7 @@ interface ProductListProps {
 
 const ITEMS_PER_PAGE = 20; // 5 columns x 4 rows pagination
 
-export function ProductList({ products, categories = [], lowStockThreshold = 10, onEdit, onDelete }: ProductListProps) {
+export function ProductList({ products, categories = [], lowStockThreshold = 5, onEdit, onDelete }: ProductListProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 if total product list changes
@@ -47,7 +47,9 @@ export function ProductList({ products, categories = [], lowStockThreshold = 10,
       {/* 5 columns x 4 rows Inventory Display Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {paginatedProducts.map((product, index) => {
-          const effectiveThreshold = product.minStock !== undefined && product.minStock > 0 ? product.minStock : lowStockThreshold;
+          const effectiveThreshold = product.minStock !== undefined && product.minStock > 0 
+            ? product.minStock 
+            : (lowStockThreshold || 5);
           const isOutOfStock = product.stock <= 0;
           const isLowStock = !isOutOfStock && product.stock <= effectiveThreshold;
 
@@ -150,11 +152,16 @@ export function ProductList({ products, categories = [], lowStockThreshold = 10,
                     </span>
                   </div>
 
-                  {product.minStock !== undefined && product.minStock > 0 && (
-                    <span className="text-[10px] font-extrabold text-gray-600 dark:text-gray-400" title="Custom threshold for this item">
-                      Min: {product.minStock} {product.unit || ''}
-                    </span>
-                  )}
+                  <span 
+                    className={`text-[10px] font-black px-1.5 py-0.5 rounded-md border tracking-tight ${
+                      isLowStock 
+                        ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700' 
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                    }`} 
+                    title="Min Stock Alert Rule"
+                  >
+                    Min: {product.minStock !== undefined ? product.minStock : 5} {product.unit || ''}
+                  </span>
                 </div>
 
                 {/* Low Stock or Out of Stock Alert Badge */}
@@ -166,7 +173,7 @@ export function ProductList({ products, categories = [], lowStockThreshold = 10,
                 ) : isLowStock ? (
                   <div className="flex items-center justify-center gap-1.5 w-full bg-amber-100 dark:bg-amber-950/90 text-amber-950 dark:text-amber-200 text-[11px] font-black px-2 py-1.5 rounded-xl uppercase tracking-wider border-2 border-amber-400 dark:border-amber-700 shadow-2xs">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" />
-                    <span>Low Stock (≤{effectiveThreshold})</span>
+                    <span>Low Stock Alert (≤ {effectiveThreshold})</span>
                   </div>
                 ) : null}
               </div>

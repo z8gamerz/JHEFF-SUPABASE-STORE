@@ -127,13 +127,21 @@ export function RestockForm({ products, suppliers, onSave, onClose }: RestockFor
                       <p className="font-black text-xs sm:text-sm text-gray-950 dark:text-white leading-snug break-words">
                         {product.name}
                       </p>
-                      <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border mt-1 ${
-                        product.stock > 10
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
-                          : 'bg-rose-100 dark:bg-rose-950 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
-                      }`}>
-                        Current Stock: {product.stock} {product.unit || ''}
-                      </span>
+                      {(() => {
+                        const threshold = product.minStock !== undefined ? product.minStock : 5;
+                        const isLow = product.stock <= threshold;
+                        return (
+                          <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border mt-1 ${
+                            product.stock <= 0
+                              ? 'bg-rose-100 dark:bg-rose-950 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
+                              : isLow
+                              ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800'
+                              : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
+                          }`}>
+                            Current Stock: {product.stock} {product.unit || ''} (Min: {threshold})
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors border border-indigo-200 dark:border-indigo-800">
                       <Plus className="w-4 h-4 stroke-[3]" />

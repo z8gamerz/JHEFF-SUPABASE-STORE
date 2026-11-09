@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuditLogs } from '@/lib/hooks/use-audit-logs';
 import { motion } from 'motion/react';
 import { 
@@ -12,16 +12,51 @@ import {
   Activity,
   ChevronRight,
   Filter,
-  RefreshCw
+  RefreshCw,
+  Clock,
+  Trash2,
+  Check,
+  Database,
+  ShieldCheck,
+  Sparkles,
+  Sliders
 } from 'lucide-react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { format } from 'date-fns';
 
 export default function AuditTrailPage() {
-  const { logs, loading, refresh } = useAuditLogs();
+  const { 
+    logs, 
+    loading, 
+    ttlDays, 
+    setTtlDays, 
+    autoPurgeEnabled, 
+    setAutoPurgeEnabled, 
+    cleanExpiredNow, 
+    isPurging, 
+    refresh 
+  } = useAuditLogs();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAction, setFilterAction] = useState<string>('all');
+  const [purgeSuccessMsg, setPurgeSuccessMsg] = useState<string | null>(null);
+
+  const cutoffMs = useMemo(() => Date.now() - (ttlDays * 24 * 60 * 60 * 1000), [ttlDays]);
+  const expiredLogsCount = useMemo(() => logs.filter(l => (l.timestamp || 0) < cutoffMs).length, [logs, cutoffMs]);
+
+  const handlePurgeNow = async () => {
+    try {
+      const res = await cleanExpiredNow();
+      if (res.deletedCount > 0) {
+        setPurgeSuccessMsg(`Nalinis at na-purge ang ${res.deletedCount} lumang logs na lampas na sa ${ttlDays} araw!`);
+      } else {
+        setPurgeSuccessMsg(`Ligtas ang database! Lahat ng logs ay pasok pa sa ${ttlDays}-day TTL retention rule.`);
+      }
+      setTimeout(() => setPurgeSuccessMsg(null), 5000);
+    } catch (err: any) {
+      alert('Error cleaning expired logs: ' + (err?.message || 'Unknown error'));
+    }
+  };
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = 
@@ -123,17 +158,131 @@ export default function AuditTrailPage() {
               </div>
             </div>
 
+            {/* Audit Log TTL & Database Storage Retention Card */}
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800 space-y-5 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 rounded-xl">
+                    <Database className="w-4 h-4 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-950 dark:text-white">
+                      Storage TTL Rule
+                    </h3>
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                      Auto-purge rule para di mapuno ang database
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  Active
+                </span>
+              </div>
+
+              {/* TTL Days Selector */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block mb-2">
+                  Retention Period:
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                  {[7, 14, 30, 60, 90].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setTtlDays(days)}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
+                        ttlDays === days
+                          ? 'bg-orange-600 text-white border-orange-600 shadow-sm'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {days === 30 ? '30d (Def)' : `${days}d`}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Custom:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={ttlDays}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val > 0) setTtlDays(val);
+                    }}
+                    className="w-16 px-2 py-1 text-center bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-950 dark:text-white rounded-lg font-bold text-xs outline-none focus:border-orange-500"
+                  />
+                  <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">araw (days)</span>
+                </div>
+              </div>
+
+              {/* Retention Metrics */}
+              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 space-y-1.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 dark:text-gray-400 font-bold text-[11px]">Kabuuang Logs:</span>
+                  <span className="font-black text-gray-900 dark:text-white">{logs.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 dark:text-gray-400 font-bold text-[11px]">Pasok sa {ttlDays} araw:</span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400">{logs.length - expiredLogsCount} logs</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 dark:text-gray-400 font-bold text-[11px]">Expired para i-purge:</span>
+                  <span className={`font-black ${expiredLogsCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
+                    {expiredLogsCount} logs
+                  </span>
+                </div>
+                <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-1.5 text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                  <span>Purge cutoff bago:</span>
+                  <span>{format(new Date(cutoffMs), 'MMM d, yyyy')}</span>
+                </div>
+              </div>
+
+              {/* Auto-Purge Checkbox */}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoPurgeEnabled}
+                  onChange={(e) => setAutoPurgeEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 cursor-pointer"
+                />
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                  Auto-purge expired logs sa load
+                </span>
+              </label>
+
+              {/* Purge Action Button */}
+              <button
+                type="button"
+                disabled={isPurging}
+                onClick={handlePurgeNow}
+                className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                title={`I-purge ang mga logs na mas matanda sa ${ttlDays} araw`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isPurging ? 'Nililinis...' : `Purge Logs (> ${ttlDays}d)`}</span>
+              </button>
+            </div>
+
             <div className="bg-orange-600 p-8 rounded-[2rem] text-white shadow-xl shadow-orange-500/20">
               <Activity className="w-8 h-8 mb-4 opacity-80" />
               <h3 className="text-2xl font-black tracking-tight mb-2">System Integrity</h3>
               <p className="text-orange-100 text-sm font-bold leading-relaxed">
-                Audit logs are stored locally and synced to the cloud to ensure a permanent record of all business operations.
+                Naka-activate ang TTL cleanup rule para manatiling mabilis at magaan ang IndexedDB at Cloud Realtime Database.
               </p>
             </div>
           </div>
 
           {/* Logs List */}
           <div className="lg:col-span-3 space-y-4">
+            {purgeSuccessMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-100 dark:bg-emerald-950/90 text-emerald-950 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-800 flex items-center gap-3 text-xs font-bold animate-in fade-in">
+                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[3] shrink-0" />
+                <span>{purgeSuccessMsg}</span>
+              </div>
+            )}
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mb-4"></div>

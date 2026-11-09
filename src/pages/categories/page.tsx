@@ -146,7 +146,7 @@ export default function CategoriesPage() {
       const totalStock = catProducts.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
       const totalValue = catProducts.reduce((sum, p) => sum + ((Number(p.price) || 0) * (Number(p.stock) || 0)), 0);
       const totalCostValue = catProducts.reduce((sum, p) => sum + ((Number(p.cost) || 0) * (Number(p.stock) || 0)), 0);
-      const lowStockCount = catProducts.filter(p => p.stock > 0 && p.stock <= (p.minStock || 10)).length;
+      const lowStockCount = catProducts.filter(p => p.stock > 0 && p.stock <= (p.minStock !== undefined ? p.minStock : 5)).length;
       const outOfStockCount = catProducts.filter(p => p.stock <= 0).length;
 
       map.set(cat.name, {
@@ -690,7 +690,8 @@ export default function CategoriesPage() {
                   ) : (
                     activeCategoryItems.map(product => {
                       const isOutOfStock = product.stock <= 0;
-                      const isLowStock = !isOutOfStock && product.stock <= (product.minStock || 10);
+                      const effectiveThreshold = product.minStock !== undefined ? product.minStock : 5;
+                      const isLowStock = !isOutOfStock && product.stock <= effectiveThreshold;
 
                       return (
                         <div

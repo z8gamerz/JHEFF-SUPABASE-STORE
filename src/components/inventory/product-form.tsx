@@ -21,7 +21,7 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
     price: '',
     cost: '',
     stock: '',
-    minStock: '',
+    minStock: '5',
     category: '',
     barcode: '',
     branchId: '',
@@ -40,7 +40,7 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
         price: product.price.toString(),
         cost: (product.cost || 0).toString(),
         stock: product.stock.toString(),
-        minStock: product.minStock !== undefined ? product.minStock.toString() : '',
+        minStock: (product.minStock !== undefined && product.minStock !== null) ? product.minStock.toString() : '5',
         category: product.category || (categories[0]?.name || 'Others'),
         barcode: product.barcode || '',
         branchId: product.branchId,
@@ -52,7 +52,7 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
         ...prev, 
         branchId: currentBranchId, 
         category: prev.category || (categories[0]?.name || 'Others'),
-        minStock: '',
+        minStock: '5',
         unit: 'pc',
         isWeightBased: false,
       }));
@@ -68,10 +68,10 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
     setIsSaving(true);
     try {
       const isWeight = Boolean(formData.isWeightBased);
-      const parsedStock = isWeight ? parseFloat(formData.stock) || 0 : parseFloat(formData.stock) || 0;
-      const parsedMinStock = formData.minStock 
-        ? (isWeight ? parseFloat(formData.minStock) : parseFloat(formData.minStock)) 
-        : undefined;
+      const parsedStock = parseFloat(formData.stock) || 0;
+      const parsedMinStock = (formData.minStock !== '' && !isNaN(parseFloat(formData.minStock)))
+        ? parseFloat(formData.minStock)
+        : 5;
 
       const data = {
         ...formData,
@@ -347,14 +347,15 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
               </div>
               <div>
                 <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" /> Min Stock Alert
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 stroke-[2.5]" /> Min Stock Alert (Rule: 5) *
                 </label>
                 <input
                   type="number"
                   step={formData.isWeightBased ? "any" : "1"}
+                  required
                   value={formData.minStock}
                   onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
-                  placeholder={formData.isWeightBased ? "e.g. 5.0" : "e.g. 10"}
+                  placeholder="5 (Min Stock Alert)"
                   className="w-full px-4 py-3 sm:py-3.5 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-bold text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all placeholder:text-gray-500 dark:placeholder:text-gray-400 shadow-xs"
                 />
               </div>

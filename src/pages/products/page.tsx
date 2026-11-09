@@ -10,7 +10,7 @@ import { ProductList } from '@/components/inventory/product-list';
 import { ProductForm } from '@/components/inventory/product-form';
 import { CsvImport } from '@/components/inventory/csv-import';
 import { ConfirmModal } from '@/components/ui/modal';
-import { Plus, Search, Package, ArrowLeft, Upload, Download, ShieldAlert, AlertTriangle, AlertCircle, ArrowRight, FolderTree, Layers, TrendingUp } from 'lucide-react';
+import { Plus, Search, Package, ArrowLeft, Upload, Download, ShieldAlert, AlertTriangle, AlertCircle, ArrowRight, FolderTree, Layers, TrendingUp, Sparkles, Check, Sliders, X } from 'lucide-react';
 import Link from 'next/link';
 import { Product } from '@/lib/db/idb';
 import { AuthGuard } from '@/components/auth/auth-guard';
@@ -18,7 +18,7 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 export default function ProductsPage() {
   const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { isAdmin, isCashier } = useAuth();
-  const { products, loading, addProduct, addProducts, updateProduct, deleteProduct } = useProducts(currentBranchId || undefined);
+  const { products, loading, addProduct, addProducts, updateProduct, deleteProduct, fixAllMinStockTo5, setAllStockQuantity } = useProducts(currentBranchId || undefined);
   const { categories } = useCategories();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -27,6 +27,15 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [isFixingAll, setIsFixingAll] = useState(false);
+  const [fixSuccessMessage, setFixSuccessMessage] = useState<string | null>(null);
+  const [isScalingStocks, setIsScalingStocks] = useState(false);
+  const [scaleSuccessMessage, setScaleSuccessMessage] = useState<string | null>(null);
+  const [isScaleModalOpen, setIsScaleModalOpen] = useState(false);
+  const [targetStockValue, setTargetStockValue] = useState<number>(10);
+  const [isWarningConfirmOpen, setIsWarningConfirmOpen] = useState(false);
+  const [pendingScaleQty, setPendingScaleQty] = useState<number>(10);
+  const [hasAcknowledgedWarning, setHasAcknowledgedWarning] = useState(false);
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('inventory_low_stock_threshold');
@@ -35,7 +44,7 @@ export default function ProductsPage() {
         if (!isNaN(parsed) && parsed > 0) return parsed;
       }
     }
-    return 10;
+    return 5;
   });
 
   const handleUpdateThreshold = (val: number) => {
@@ -43,6 +52,45 @@ export default function ProductsPage() {
     setLowStockThreshold(clamped);
     if (typeof window !== 'undefined') {
       localStorage.setItem('inventory_low_stock_threshold', String(clamped));
+    }
+  };
+
+  const handleFixAllTo5 = async () => {
+    setIsFixingAll(true);
+    try {
+      const updatedCount = await fixAllMinStockTo5();
+      handleUpdateThreshold(5);
+      setFixSuccessMessage(`Naka-fix na sa 5 ang Min Stock Alert ng lahat (${updatedCount} updated)!`);
+      setTimeout(() => setFixSuccessMessage(null), 4000);
+    } catch (err: any) {
+      alert('Failed to update: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsFixingAll(false);
+    }
+  };
+
+  const requestScaleConfirmation = (qty: number) => {
+    if (products.length === 0) {
+      alert('Walang products sa inventory para i-scale.');
+      return;
+    }
+    setPendingScaleQty(qty);
+    setHasAcknowledgedWarning(false);
+    setIsScaleModalOpen(false);
+    setIsWarningConfirmOpen(true);
+  };
+
+  const handleExecuteConfirmedScale = async () => {
+    setIsScalingStocks(true);
+    try {
+      const updatedCount = await setAllStockQuantity(pendingScaleQty);
+      setScaleSuccessMessage(`Matagumpay na nailagay sa tig-${pendingScaleQty} ang stock ng lahat ng ${updatedCount} items! Recomputed ang Stock Value.`);
+      setIsWarningConfirmOpen(false);
+      setTimeout(() => setScaleSuccessMessage(null), 5000);
+    } catch (err: any) {
+      alert('Failed to scale stocks: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsScalingStocks(false);
     }
   };
 
@@ -226,6 +274,14 @@ export default function ProductsPage() {
                   Import CSV
                 </button>
                 <button
+                  onClick={() => setIsScaleModalOpen(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-black px-6 py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 transition-all active:scale-95 cursor-pointer text-xs uppercase tracking-wider"
+                  title="I-scale ang stocks (e.g. ilagay sa 10 lahat)"
+                >
+                  <Sliders className="w-5 h-5" />
+                  <span>Scale Stocks (10)</span>
+                </button>
+                <button
                   onClick={() => {
                     setEditingProduct(null);
                     setIsFormOpen(true);
@@ -238,6 +294,13 @@ export default function ProductsPage() {
               </div>
             )}
           </div>
+
+          {scaleSuccessMessage && (
+            <div className="mb-6 p-4 rounded-2xl bg-emerald-100 dark:bg-emerald-950/90 text-emerald-950 dark:text-emerald-100 border-2 border-emerald-300 dark:border-emerald-800 flex items-center gap-3 font-bold text-sm shadow-md animate-in fade-in">
+              <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[3] shrink-0" />
+              <span>{scaleSuccessMessage}</span>
+            </div>
+          )}
 
           {/* Inventory Overview Metrics Bar strictly computed from current inventory */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -274,36 +337,59 @@ export default function ProductsPage() {
               <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">Unique items in store</p>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 bg-orange-100 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300 rounded-2xl">
-                  <TrendingUp className="w-5 h-5 stroke-[2.5]" />
+            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2.5 bg-orange-100 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300 rounded-2xl">
+                    <TrendingUp className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Total Stock Value</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Total Stock Value</span>
-                </div>
+                <p className="text-2xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">
+                  ₱{inventoryStats.totalInventoryValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">
+                  Puhunan: ₱{inventoryStats.totalCostValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">
-                ₱{inventoryStats.totalInventoryValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">
-                Puhunan: ₱{inventoryStats.totalCostValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
+              <button
+                type="button"
+                onClick={() => setIsScaleModalOpen(true)}
+                className="mt-2.5 text-[10px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-300 hover:text-orange-950 dark:hover:text-white bg-orange-50 dark:bg-orange-950/50 hover:bg-orange-100 dark:hover:bg-orange-900/80 px-2.5 py-1.5 rounded-xl border border-orange-200 dark:border-orange-800 transition-all flex items-center justify-between w-full cursor-pointer"
+                title="Scalable Stock Value Manager"
+              >
+                <span>Scale Stock Value</span>
+                <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 rounded-2xl">
-                  <Layers className="w-5 h-5 stroke-[2.5]" />
+            <div className="bg-white dark:bg-gray-900 p-4 sm:p-5 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2.5 bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 rounded-2xl">
+                    <Layers className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Units / Quantity</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Units / Quantity</span>
-                </div>
+                <p className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight">
+                  {inventoryStats.totalStockQty.toLocaleString()}
+                </p>
+                <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">Total physical stock on hand</p>
               </div>
-              <p className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white tracking-tight">
-                {inventoryStats.totalStockQty.toLocaleString()}
-              </p>
-              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mt-1">Total physical stock on hand</p>
+              <button
+                type="button"
+                onClick={() => requestScaleConfirmation(10)}
+                disabled={isScalingStocks}
+                className="mt-2.5 text-[10px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 hover:text-purple-950 dark:hover:text-white bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/80 px-2.5 py-1.5 rounded-xl border border-purple-200 dark:border-purple-800 transition-all flex items-center justify-between w-full cursor-pointer disabled:opacity-50"
+                title="I-set ang lahat ng stock sa tig-10"
+              >
+                <span>{isScalingStocks ? 'Updating...' : 'Set All Stocks to 10'}</span>
+                <Sliders className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
             </div>
           </div>
   
@@ -464,6 +550,25 @@ export default function ProductsPage() {
                 ))}
               </div>
 
+              {/* Fix All Items to 5 Button */}
+              <button
+                type="button"
+                disabled={isFixingAll}
+                onClick={handleFixAllTo5}
+                className="px-3 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
+                title="Pindutin para gawing 5 ang Min Stock Alert ng lahat ng items sa inventory"
+              >
+                <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>{isFixingAll ? 'Inaayos...' : 'Fix All into 5'}</span>
+              </button>
+
+              {fixSuccessMessage && (
+                <div className="text-xs font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 animate-in fade-in">
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{fixSuccessMessage}</span>
+                </div>
+              )}
+
               {/* Quick Low Stock Toggle Filter */}
               <button
                 type="button"
@@ -525,6 +630,230 @@ export default function ProductsPage() {
           variant="danger"
           confirmText="Delete"
         />
+
+        {/* Scalable Inventory Stock Modal */}
+        {isScaleModalOpen && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 transition-colors my-auto">
+              <div className="px-6 sm:px-8 py-5 sm:py-6 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-purple-50 dark:bg-purple-950/40">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-600 p-2.5 rounded-2xl text-white shadow-md shadow-purple-500/20">
+                    <Sliders className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-gray-950 dark:text-white uppercase tracking-tight">
+                      Scale Inventory Stocks
+                    </h3>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 font-bold mt-0.5">
+                      I-set ang stock ng lahat ng items nang sabay-sabay
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsScaleModalOpen(false)}
+                  className="p-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 rounded-xl cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 sm:p-8 space-y-6">
+                <div>
+                  <label className="block text-xs font-black text-gray-950 dark:text-white uppercase tracking-wider mb-2">
+                    Target Stock Quantity kada Item:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="99999"
+                      value={targetStockValue}
+                      onChange={(e) => setTargetStockValue(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="flex-1 px-4 py-3 rounded-xl border-2 border-purple-500 bg-white dark:bg-gray-800 text-gray-950 dark:text-white font-black text-lg text-center outline-none"
+                    />
+                    <span className="text-sm font-black text-gray-700 dark:text-gray-300 uppercase">units / item</span>
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div>
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2">
+                    Quick Presets:
+                  </span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[5, 10, 20, 50].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setTargetStockValue(preset)}
+                        className={`py-2 px-3 rounded-xl font-black text-xs transition-all border cursor-pointer ${
+                          targetStockValue === preset
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {preset === 10 ? '10 (Default)' : preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Preview Box */}
+                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 space-y-2.5">
+                  <span className="text-[11px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
+                    Recomputed Inventory Projection:
+                  </span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Total Catalog Products:</span>
+                    <span className="font-black text-gray-950 dark:text-white">{products.length} items</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">New Total Stock Units:</span>
+                    <span className="font-black text-purple-600 dark:text-purple-400">{products.length * targetStockValue} units</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Recomputed Total Stock Value (Benta):</span>
+                    <span className="font-black text-orange-600 dark:text-orange-400">
+                      ₱{(products.reduce((sum, p) => sum + (Number(p.price) || 0), 0) * targetStockValue).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs border-t border-gray-200 dark:border-gray-700 pt-2">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Recomputed Total Puhunan (Cost):</span>
+                    <span className="font-black text-gray-800 dark:text-gray-200">
+                      ₱{(products.reduce((sum, p) => sum + (Number(p.cost) || 0), 0) * targetStockValue).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsScaleModalOpen(false)}
+                    className="flex-1 px-4 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isScalingStocks}
+                    onClick={() => requestScaleConfirmation(targetStockValue)}
+                    className="flex-1 px-4 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    <span>{`Ituloy sa ${targetStockValue} Units →`}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Warning & Confirmation Notice Modal for Scalable Stock Overwrite */}
+        {isWarningConfirmOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden border-2 border-amber-400 dark:border-amber-600 transition-colors my-auto animate-in zoom-in-95">
+              <div className="px-6 sm:px-8 py-5 sm:py-6 border-b-2 border-gray-200 dark:border-gray-800 flex items-center justify-between bg-amber-50 dark:bg-amber-950/40">
+                <div className="flex items-center gap-3">
+                  <div className="bg-amber-500 p-2.5 rounded-2xl text-white shadow-md shadow-amber-500/20">
+                    <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-gray-950 dark:text-white uppercase tracking-tight">
+                      Kumpirmasyon at Babala
+                    </h3>
+                    <p className="text-xs text-amber-800 dark:text-amber-300 font-bold mt-0.5">
+                      Pakibasa bago ituloy ang pag-scale ng stocks
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsWarningConfirmOpen(false)}
+                  className="p-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 rounded-xl cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 sm:p-8 space-y-5">
+                {/* Warning Alert Box */}
+                <div className="p-4 rounded-2xl bg-amber-100/70 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100 text-xs sm:text-sm font-semibold space-y-2">
+                  <p className="font-black text-amber-900 dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 stroke-[2.5]" />
+                    Pansinin: Bulk Stock Overwrite
+                  </p>
+                  <p>
+                    Papalitan at i-o-overwrite nito ang bilang ng stock ng <strong className="font-black text-gray-950 dark:text-white">lahat ng {products.length} mga produkto</strong> sa iyong inventory at gagawin itong <strong className="font-black text-gray-950 dark:text-white">{pendingScaleQty} units bawat isa</strong>.
+                  </p>
+                  <p className="text-xs text-amber-900/90 dark:text-amber-200/90">
+                    ⚠️ Ang dating bilang ng physical stock ay mapapalitan at agad na magre-recompute ang iyong <strong>Total Stock Value</strong> at <strong>Units / Quantity</strong> sa database. Hindi ito awtomatikong maibabalik sa dating bilang kapag na-apply na.
+                  </p>
+                </div>
+
+                {/* Summary Comparison */}
+                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Maaapektuhang Produkto:</span>
+                    <span className="font-black text-gray-950 dark:text-white">{products.length} items</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Bagong Stock kada Item:</span>
+                    <span className="font-black text-purple-600 dark:text-purple-400">{pendingScaleQty} units</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Bagong Kabuuang Units:</span>
+                    <span className="font-black text-purple-600 dark:text-purple-400">{products.length * pendingScaleQty} units</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-2">
+                    <span className="text-gray-600 dark:text-gray-400 font-bold">Bagong Total Stock Value:</span>
+                    <span className="font-black text-orange-600 dark:text-orange-400">
+                      ₱{(products.reduce((sum, p) => sum + (Number(p.price) || 0), 0) * pendingScaleQty).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Acknowledgment Checkbox */}
+                <label className="flex items-start gap-3 p-3 rounded-xl bg-gray-100 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hasAcknowledgedWarning}
+                    onChange={(e) => setHasAcknowledgedWarning(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-snug">
+                    Naiintindihan ko ang babala at nais kong ilagay sa <strong className="text-gray-950 dark:text-white">{pendingScaleQty} units</strong> ang stock ng lahat ng items sa inventory.
+                  </span>
+                </label>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsWarningConfirmOpen(false)}
+                    className="flex-1 px-4 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
+                  >
+                    Kanselahin
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isScalingStocks || !hasAcknowledgedWarning}
+                    onClick={handleExecuteConfirmedScale}
+                    className="flex-1 px-4 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider text-white bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-600/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isScalingStocks ? (
+                      <span>Ina-update...</span>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Kumpirmahin at I-scale</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AuthGuard>
   );

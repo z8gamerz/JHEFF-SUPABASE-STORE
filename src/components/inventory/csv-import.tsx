@@ -17,6 +17,7 @@ interface ValidatedProduct {
   cost: number;
   category: string;
   stock: number;
+  minStock?: number;
 }
 
 interface ImportError {
@@ -108,7 +109,8 @@ export function CsvImport({ onImport, onClose }: CsvImportProps) {
         price,
         cost: isNaN(cost) ? 0 : cost,
         category,
-        stock: isNaN(stock) ? 0 : stock
+        stock: isNaN(stock) ? 0 : stock,
+        minStock: 5,
       });
     });
 

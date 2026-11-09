@@ -53,13 +53,21 @@ export const ProductCard = React.memo(function ProductCard({ product, onAdd }: P
               </span>
             )}
           </div>
-          <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border shrink-0 ${
-            product.stock > 10 
-              ? 'bg-emerald-100 dark:bg-emerald-950/90 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800' 
-              : 'bg-rose-100 dark:bg-rose-950/90 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
-          }`}>
-            {product.stock} {product.unit ? (product.unit === 'pc' ? 'IN STOCK' : product.unit) : 'IN STOCK'}
-          </span>
+          {(() => {
+            const minStock = product.minStock !== undefined ? product.minStock : 5;
+            const isLow = product.stock <= minStock && !isOutOfStock;
+            return (
+              <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border shrink-0 ${
+                isOutOfStock
+                  ? 'bg-rose-100 dark:bg-rose-950/90 text-rose-950 dark:text-rose-200 border-rose-300 dark:border-rose-800'
+                  : isLow
+                  ? 'bg-amber-100 dark:bg-amber-950/90 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800'
+                  : 'bg-emerald-100 dark:bg-emerald-950/90 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800'
+              }`}>
+                {product.stock} {product.unit ? (product.unit === 'pc' ? 'IN STOCK' : product.unit) : 'IN STOCK'}
+              </span>
+            );
+          })()}
         </div>
         
         {/* Product title with auto-fit responsive typography and line clamp */}
