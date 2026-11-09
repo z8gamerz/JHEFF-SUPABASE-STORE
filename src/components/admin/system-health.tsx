@@ -26,10 +26,13 @@ import {
   Wifi,
   CloudLightning,
   Radio,
-  Zap
+  Zap,
+  Send,
+  Key
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/modal';
 import { upstashRedis } from '@/lib/services/redis-service';
+import { qstashService, QStashStatus, QStashPublishResult } from '@/lib/services/qstash-service';
 
 export function SystemHealthDashboard() {
   const { user, isAdmin } = useAuth();
@@ -53,6 +56,9 @@ export function SystemHealthDashboard() {
     message: string;
     timestamp: number;
   } | null>(null);
+  const [qstashTesting, setQstashTesting] = useState(false);
+  const [qstashStatus, setQstashStatus] = useState<QStashStatus | null>(null);
+  const [qstashTestResult, setQstashTestResult] = useState<QStashPublishResult | null>(null);
 
   const handleTestRedis = async () => {
     setRedisTesting(true);
@@ -92,6 +98,31 @@ export function SystemHealthDashboard() {
     }
   };
 
+  const handleTestQStash = async () => {
+    setQstashTesting(true);
+    setQstashTestResult(null);
+    try {
+      const res = await qstashService.publish({
+        url: 'https://httpstat.us/200',
+        body: {
+          app: 'Sari-Sari POS',
+          event: 'system_health_probe',
+          timestamp: Date.now()
+        }
+      });
+      setQstashTestResult(res);
+      const updatedStatus = await qstashService.getStatus();
+      setQstashStatus(updatedStatus);
+    } catch (e: any) {
+      setQstashTestResult({
+        success: false,
+        error: e?.message || 'QStash publish failed'
+      });
+    } finally {
+      setQstashTesting(false);
+    }
+  };
+
   useEffect(() => {
     const unsub = realtimeSync.subscribeStatus((st) => setStreamStatus(st));
     return () => unsub();
@@ -107,6 +138,9 @@ export function SystemHealthDashboard() {
           quota: est.quota || 0,
         });
       }
+
+      // Check QStash status
+      qstashService.getStatus().then((st) => setQstashStatus(st)).catch(() => {});
 
       const allLogs = await auditService.getAll();
       allLogs.sort((a, b) => b.timestamp - a.timestamp);
@@ -220,7 +254,7 @@ export function SystemHealthDashboard() {
       )}
 
       {/* KPI Overview Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {/* Security & RLS */}
         <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -321,6 +355,55 @@ export function SystemHealthDashboard() {
             {redisTestResult && (
               <p className={`text-[10px] font-bold mt-2 text-center ${redisTestResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                 {redisTestResult.success ? `✓ Ping: ${redisTestResult.ping} (${redisTestResult.latencyMs}ms)` : `✗ ${redisTestResult.message}`}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Upstash QStash Message Queue */}
+        <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Upstash QStash</span>
+              <div className="p-2.5 bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-400 rounded-xl">
+                <Radio className="w-5 h-5" />
+              </div>
+            </div>
+            <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${qstashStatus?.connected !== false ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+              {qstashTestResult ? (qstashTestResult.success ? 'Message Queued' : 'Publish Error') : (qstashStatus?.connected !== false ? 'QStash Connected' : 'Checking...')}
+            </h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title="qstash-us-east-1.upstash.io">
+              qstash-us-east-1.upstash.io
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1 font-mono flex items-center gap-1">
+              <Key className="w-3 h-3 text-emerald-500 shrink-0" />
+              <span>Token: {qstashStatus?.tokenMasked || 'eyJVc2Vy••••••••'}</span>
+            </p>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={handleTestQStash}
+              disabled={qstashTesting}
+              className="w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {qstashTesting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  Test QStash Publish
+                </>
+              )}
+            </button>
+            {qstashTestResult && (
+              <p className={`text-[10px] font-bold mt-2 text-center truncate ${qstashTestResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} title={qstashTestResult.messageId || qstashTestResult.error}>
+                {qstashTestResult.success ? `✓ Msg: ${qstashTestResult.messageId}` : `✗ ${qstashTestResult.error}`}
               </p>
             )}
           </div>

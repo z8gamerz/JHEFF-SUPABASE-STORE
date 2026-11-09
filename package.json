@@ -17,6 +17,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/nodemailer": "^8.0.2",
+    "@upstash/qstash": "^2.12.1",
     "@upstash/redis": "^1.41.0",
     "@vitejs/plugin-react": "^5.0.4",
     "class-variance-authority": "^0.7.1",
