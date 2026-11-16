@@ -1,4 +1,5 @@
 import { CreditEntry } from '@/lib/db/idb';
+import { roundCurrency } from './financial';
 
 export interface AppliedPaymentInfo {
   paymentId: string;
@@ -71,7 +72,7 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
     .sort((a, b) => a.timestamp - b.timestamp);
 
   const matchedCredits: MatchedCredit[] = creditEntries.map(c => {
-    const originalAmount = Math.abs(c.amount);
+    const originalAmount = roundCurrency(Math.abs(c.amount));
     return {
       id: c.id,
       timestamp: c.timestamp,
@@ -85,7 +86,7 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
   });
 
   const paymentTrackers = paymentEntries.map(p => {
-    const paymentAmount = Math.abs(p.amount);
+    const paymentAmount = roundCurrency(Math.abs(p.amount));
     return {
       id: p.id,
       timestamp: p.timestamp,
@@ -103,10 +104,10 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
     if (p.targetCreditId && p.remainingToAllocate > 0.0001) {
       const targetCredit = matchedCredits.find(c => c.id === p.targetCreditId);
       if (targetCredit && targetCredit.remainingBalance > 0.0001) {
-        const alloc = Math.min(p.remainingToAllocate, targetCredit.remainingBalance);
-        targetCredit.amountPaid += alloc;
-        targetCredit.remainingBalance -= alloc;
-        p.remainingToAllocate -= alloc;
+        const alloc = roundCurrency(Math.min(p.remainingToAllocate, targetCredit.remainingBalance));
+        targetCredit.amountPaid = roundCurrency(targetCredit.amountPaid + alloc);
+        targetCredit.remainingBalance = roundCurrency(targetCredit.remainingBalance - alloc);
+        p.remainingToAllocate = roundCurrency(p.remainingToAllocate - alloc);
 
         targetCredit.appliedPayments.push({
           paymentId: p.id,
@@ -122,7 +123,7 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
           originalCreditAmount: targetCredit.originalAmount,
           amountCovered: alloc,
           isFullySettledByThis: targetCredit.remainingBalance < 0.0001,
-          creditRemainingAfter: Math.max(0, targetCredit.remainingBalance),
+          creditRemainingAfter: roundCurrency(Math.max(0, targetCredit.remainingBalance)),
         });
       }
     }
@@ -133,15 +134,15 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
     while (p.remainingToAllocate > 0.0001) {
       const openCredit = matchedCredits.find(c => c.remainingBalance > 0.0001);
       if (!openCredit) {
-        p.unallocatedAmount = p.remainingToAllocate;
+        p.unallocatedAmount = roundCurrency(p.remainingToAllocate);
         p.remainingToAllocate = 0;
         break;
       }
 
-      const alloc = Math.min(p.remainingToAllocate, openCredit.remainingBalance);
-      openCredit.amountPaid += alloc;
-      openCredit.remainingBalance -= alloc;
-      p.remainingToAllocate -= alloc;
+      const alloc = roundCurrency(Math.min(p.remainingToAllocate, openCredit.remainingBalance));
+      openCredit.amountPaid = roundCurrency(openCredit.amountPaid + alloc);
+      openCredit.remainingBalance = roundCurrency(openCredit.remainingBalance - alloc);
+      p.remainingToAllocate = roundCurrency(p.remainingToAllocate - alloc);
 
       openCredit.appliedPayments.push({
         paymentId: p.id,
@@ -157,7 +158,7 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
         originalCreditAmount: openCredit.originalAmount,
         amountCovered: alloc,
         isFullySettledByThis: openCredit.remainingBalance < 0.0001,
-        creditRemainingAfter: Math.max(0, openCredit.remainingBalance),
+        creditRemainingAfter: roundCurrency(Math.max(0, openCredit.remainingBalance)),
       });
     }
   }
@@ -195,9 +196,9 @@ export function computeCreditCrossMatch(entries: CreditEntry[]): CrossMatchResul
     unallocatedAmount: p.unallocatedAmount,
   }));
 
-  const totalCredits = matchedCredits.reduce((sum, c) => sum + c.originalAmount, 0);
-  const totalPayments = matchedPayments.reduce((sum, p) => sum + p.paymentAmount, 0);
-  const totalOutstanding = matchedCredits.reduce((sum, c) => sum + c.remainingBalance, 0);
+  const totalCredits = roundCurrency(matchedCredits.reduce((sum, c) => sum + c.originalAmount, 0));
+  const totalPayments = roundCurrency(matchedPayments.reduce((sum, p) => sum + p.paymentAmount, 0));
+  const totalOutstanding = roundCurrency(matchedCredits.reduce((sum, c) => sum + c.remainingBalance, 0));
 
   return {
     credits: matchedCredits,
@@ -236,7 +237,7 @@ export function previewPaymentImpact(
   unallocated: number;
   totalCovered: number;
 } {
-  let remainingPayment = Math.max(0, paymentAmount);
+  let remainingPayment = roundCurrency(Math.max(0, paymentAmount));
   const impacts: PaymentPreviewImpact[] = [];
 
   // Deep clone candidate credits so we don't mutate input
@@ -248,7 +249,8 @@ export function previewPaymentImpact(
   if (targetCreditId) {
     const target = candidates.find(c => c.id === targetCreditId);
     if (target && remainingPayment > 0.0001) {
-      const cover = Math.min(remainingPayment, target.remainingBalance);
+      const cover = roundCurrency(Math.min(remainingPayment, target.remainingBalance));
+      const remainingAfter = roundCurrency(Math.max(0, target.remainingBalance - cover));
       impacts.push({
         creditId: target.id,
         timestamp: target.timestamp,
@@ -256,11 +258,11 @@ export function previewPaymentImpact(
         originalAmount: target.originalAmount,
         currentBalance: target.remainingBalance,
         amountCovered: cover,
-        remainingAfter: Math.max(0, target.remainingBalance - cover),
-        willBeFullySettled: target.remainingBalance - cover < 0.0001,
+        remainingAfter,
+        willBeFullySettled: remainingAfter < 0.0001,
       });
-      target.remainingBalance -= cover;
-      remainingPayment -= cover;
+      target.remainingBalance = remainingAfter;
+      remainingPayment = roundCurrency(remainingPayment - cover);
     }
   }
 
@@ -269,7 +271,8 @@ export function previewPaymentImpact(
     if (c.id === targetCreditId) continue;
     if (remainingPayment <= 0.0001) break;
 
-    const cover = Math.min(remainingPayment, c.remainingBalance);
+    const cover = roundCurrency(Math.min(remainingPayment, c.remainingBalance));
+    const remainingAfter = roundCurrency(Math.max(0, c.remainingBalance - cover));
     impacts.push({
       creditId: c.id,
       timestamp: c.timestamp,
@@ -277,18 +280,18 @@ export function previewPaymentImpact(
       originalAmount: c.originalAmount,
       currentBalance: c.remainingBalance,
       amountCovered: cover,
-      remainingAfter: Math.max(0, c.remainingBalance - cover),
-      willBeFullySettled: c.remainingBalance - cover < 0.0001,
+      remainingAfter,
+      willBeFullySettled: remainingAfter < 0.0001,
     });
-    c.remainingBalance -= cover;
-    remainingPayment -= cover;
+    c.remainingBalance = remainingAfter;
+    remainingPayment = roundCurrency(remainingPayment - cover);
   }
 
-  const totalCovered = impacts.reduce((sum, imp) => sum + imp.amountCovered, 0);
+  const totalCovered = roundCurrency(impacts.reduce((sum, imp) => sum + imp.amountCovered, 0));
 
   return {
     impacts,
-    unallocated: remainingPayment,
+    unallocated: roundCurrency(remainingPayment),
     totalCovered,
   };
 }

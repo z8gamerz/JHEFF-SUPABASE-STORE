@@ -31,8 +31,8 @@ import {
   Key
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/modal';
-import { upstashRedis } from '@/lib/services/redis-service';
 import { qstashService, QStashStatus, QStashPublishResult } from '@/lib/services/qstash-service';
+import { apiFetch } from '@/lib/api-client';
 
 export function SystemHealthDashboard() {
   const { user, isAdmin } = useAuth();
@@ -50,6 +50,7 @@ export function SystemHealthDashboard() {
   const [redisTesting, setRedisTesting] = useState(false);
   const [redisTestResult, setRedisTestResult] = useState<{
     success: boolean;
+    configured?: boolean;
     ping: string;
     latencyMs: number;
     host: string;
@@ -60,36 +61,54 @@ export function SystemHealthDashboard() {
   const [qstashStatus, setQstashStatus] = useState<QStashStatus | null>(null);
   const [qstashTestResult, setQstashTestResult] = useState<QStashPublishResult | null>(null);
 
+  const checkRedisHealth = async () => {
+    const res = await apiFetch('/api/utang-webhook?action=health');
+    const data = await res.json().catch(() => ({}));
+    if (data.status === 'not_configured') {
+      return {
+        success: false,
+        configured: false,
+        ping: 'NOT_CONFIGURED',
+        latencyMs: 0,
+        host: 'Not Configured',
+        message: 'Not Configured on Server',
+        timestamp: Date.now()
+      };
+    }
+    if (res.ok && data.success) {
+      return {
+        success: true,
+        configured: true,
+        ping: data.ping || 'PONG',
+        latencyMs: data.latencyMs || 0,
+        host: data.redisHost || 'Configured',
+        message: 'Connected & Operational',
+        timestamp: Date.now()
+      };
+    }
+    return {
+      success: false,
+      configured: Boolean(data?.configured ?? true),
+      ping: 'FAILED',
+      latencyMs: 0,
+      host: data.redisHost || 'Unavailable',
+      message: data.error || `HTTP ${res.status}`,
+      timestamp: Date.now()
+    };
+  };
+
   const handleTestRedis = async () => {
     setRedisTesting(true);
     try {
-      const res = await fetch('/api/utang-webhook?action=health');
-      const data = await res.json();
-      if (data.success) {
-        setRedisTestResult({
-          success: true,
-          ping: data.ping || 'PONG',
-          latencyMs: data.latencyMs || 0,
-          host: data.redisHost || 'proper-gull-192572.upstash.io',
-          message: 'Connected & Operational',
-          timestamp: Date.now()
-        });
-      } else {
-        setRedisTestResult({
-          success: false,
-          ping: 'FAILED',
-          latencyMs: 0,
-          host: 'proper-gull-192572.upstash.io',
-          message: data.error || 'Connection failed',
-          timestamp: Date.now()
-        });
-      }
+      const result = await checkRedisHealth();
+      setRedisTestResult(result);
     } catch (e: any) {
       setRedisTestResult({
         success: false,
+        configured: false,
         ping: 'ERROR',
         latencyMs: 0,
-        host: 'proper-gull-192572.upstash.io',
+        host: 'Unavailable',
         message: e?.message || 'Network request failed',
         timestamp: Date.now()
       });
@@ -102,8 +121,12 @@ export function SystemHealthDashboard() {
     setQstashTesting(true);
     setQstashTestResult(null);
     try {
+      const targetUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/api/utang-webhook?action=health`
+          : '';
       const res = await qstashService.publish({
-        url: 'https://httpstat.us/200',
+        url: targetUrl,
         body: {
           app: 'Sari-Sari POS',
           event: 'system_health_probe',
@@ -139,8 +162,9 @@ export function SystemHealthDashboard() {
         });
       }
 
-      // Check QStash status
+      // Check QStash and Redis status from authenticated endpoints
       qstashService.getStatus().then((st) => setQstashStatus(st)).catch(() => {});
+      checkRedisHealth().then((st) => setRedisTestResult(st)).catch(() => {});
 
       const allLogs = await auditService.getAll();
       allLogs.sort((a, b) => b.timestamp - a.timestamp);
@@ -325,11 +349,17 @@ export function SystemHealthDashboard() {
               </div>
             </div>
             <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              {redisTestResult ? (redisTestResult.success ? `${redisTestResult.latencyMs}ms Latency` : 'Connection Error') : 'Cloud Connected'}
+              <span className={`w-2.5 h-2.5 rounded-full ${redisTestResult?.success ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+              {redisTestResult
+                ? (redisTestResult.configured === false
+                    ? 'Not Configured'
+                    : redisTestResult.success
+                      ? `${redisTestResult.latencyMs}ms Latency`
+                      : 'Connection Error')
+                : 'Checking...'}
             </h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title="proper-gull-192572.upstash.io">
-              proper-gull-192572.upstash.io
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title={redisTestResult?.host || 'Not Configured'}>
+              {redisTestResult?.host || 'Not Configured'}
             </p>
           </div>
 
@@ -370,15 +400,19 @@ export function SystemHealthDashboard() {
               </div>
             </div>
             <h4 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${qstashStatus?.connected !== false ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
-              {qstashTestResult ? (qstashTestResult.success ? 'Message Queued' : 'Publish Error') : (qstashStatus?.connected !== false ? 'QStash Connected' : 'Checking...')}
+              <span className={`w-2.5 h-2.5 rounded-full ${qstashStatus?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+              {qstashTestResult
+                ? (qstashTestResult.success ? 'Message Queued' : 'Publish Error')
+                : qstashStatus
+                  ? (qstashStatus.configured ? (qstashStatus.connected ? 'QStash Connected' : 'Unavailable') : 'Not Configured')
+                  : 'Checking...'}
             </h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title="qstash-us-east-1.upstash.io">
-              qstash-us-east-1.upstash.io
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium truncate" title={qstashStatus?.baseUrl || 'Not Configured'}>
+              {qstashStatus?.configured && qstashStatus?.baseUrl ? qstashStatus.baseUrl : 'Not Configured'}
             </p>
             <p className="text-[10px] text-gray-400 mt-1 font-mono flex items-center gap-1">
               <Key className="w-3 h-3 text-emerald-500 shrink-0" />
-              <span>Token: {qstashStatus?.tokenMasked || 'eyJVc2Vy••••••••'}</span>
+              <span>Token: {qstashStatus?.tokenMasked || 'Not Configured'}</span>
             </p>
           </div>
 

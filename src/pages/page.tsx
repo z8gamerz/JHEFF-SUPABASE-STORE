@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { PWAInstallButton } from '@/components/pwa/pwa-install-button';
+import { getFirebaseConsoleUrl } from '@/lib/db/firebase-config';
 
 interface BaseMenuItem {
   title: string;
@@ -226,7 +227,7 @@ function HomeDashboard() {
                         <div className="flex gap-2.5">
                           <span className="flex items-center justify-center bg-rose-200/60 text-rose-900 font-bold w-5 h-5 rounded-full text-xs shrink-0 mt-0.5">1</span>
                           <div>
-                            Open your <a href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules" target="_blank" rel="noopener noreferrer" className="text-rose-700 underline font-black inline-flex items-center gap-1 hover:text-rose-900 transition-all cursor-pointer">
+                            Open your <a href={getFirebaseConsoleUrl('rules')} target="_blank" rel="noopener noreferrer" className="text-rose-700 underline font-black inline-flex items-center gap-1 hover:text-rose-900 transition-all cursor-pointer">
                               Firebase Rules Console <ExternalLink className="w-3 h-3" />
                             </a>
                           </div>

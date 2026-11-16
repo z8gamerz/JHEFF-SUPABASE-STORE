@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Customer } from '@/lib/db/idb';
+import { roundCurrency, validateSplitBreakdown } from '@/lib/utils/financial';
 
 export type PaymentMethodType = 'cash' | 'gcash' | 'bank_transfer' | 'credit' | 'split';
 
@@ -90,6 +91,7 @@ export function CheckoutModal({
 }: CheckoutModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Cash state
   const [cashTendered, setCashTendered] = useState<number>(total);
@@ -118,20 +120,23 @@ export function CheckoutModal({
 
   // Split Payment state
   // Default to Cash + Credit for Remaining Balances (as requested)
-  const [splitItems, setSplitItems] = useState<SplitItem[]>([
-    {
-      id: 'split-1',
-      method: 'cash',
-      amount: Math.floor(total / 2) || total,
-    },
-    {
-      id: 'split-2',
-      method: 'credit',
-      amount: Math.max(0, total - (Math.floor(total / 2) || total)),
-      customerId: customers.length > 0 ? customers[0].id : '',
-      customerName: customers.length > 0 ? customers[0].name : '',
-    }
-  ]);
+  const [splitItems, setSplitItems] = useState<SplitItem[]>(() => {
+    const half = roundCurrency(total / 2) || roundCurrency(total);
+    return [
+      {
+        id: 'split-1',
+        method: 'cash',
+        amount: half,
+      },
+      {
+        id: 'split-2',
+        method: 'credit',
+        amount: Math.max(0, roundCurrency(total - half)),
+        customerId: customers.length > 0 ? customers[0].id : '',
+        customerName: customers.length > 0 ? customers[0].name : '',
+      }
+    ];
+  });
 
   // Selected customer object
   const selectedCustomer = useMemo(() => {
@@ -155,12 +160,14 @@ export function CheckoutModal({
   }, [total]);
 
   // Cash change calculation
-  const cashChange = Math.max(0, cashTendered - total);
-  const isCashSufficient = cashTendered >= total;
+  const cashChange = roundCurrency(Math.max(0, cashTendered - total));
+  const isCashSufficient = roundCurrency(cashTendered) >= roundCurrency(total);
 
   // Split payment totals
-  const splitTotalAllocated = splitItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
-  const splitRemaining = Math.round((total - splitTotalAllocated) * 100) / 100;
+  const splitTotalAllocated = roundCurrency(
+    splitItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0)
+  );
+  const splitRemaining = roundCurrency(roundCurrency(total) - splitTotalAllocated);
   const isSplitBalanced = Math.abs(splitRemaining) < 0.01;
 
   // Handle cash input
@@ -197,6 +204,7 @@ export function CheckoutModal({
 
   // Split item helpers
   const handleUpdateSplitItem = (id: string, updates: Partial<SplitItem>) => {
+    setValidationError(null);
     setSplitItems(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, ...updates };
@@ -211,6 +219,7 @@ export function CheckoutModal({
   };
 
   const handleAddSplitItem = (method: 'cash' | 'gcash' | 'bank_transfer' | 'credit') => {
+    setValidationError(null);
     const defaultCust = customers[0];
     const newPortion: SplitItem = {
       id: `split-${Date.now()}-${Math.random()}`,
@@ -224,21 +233,24 @@ export function CheckoutModal({
 
   const handleRemoveSplitItem = (id: string) => {
     if (splitItems.length <= 1) return;
+    setValidationError(null);
     setSplitItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleAllocateRemainingToMethod = (targetIndex: number) => {
     if (splitRemaining === 0) return;
+    setValidationError(null);
     setSplitItems(prev => prev.map((item, idx) => {
       if (idx === targetIndex) {
-        return { ...item, amount: Math.max(0, item.amount + splitRemaining) };
+        return { ...item, amount: roundCurrency(Math.max(0, item.amount + splitRemaining)) };
       }
       return item;
     }));
   };
 
   const handleSetCashCreditPreset = () => {
-    const half = Math.round((total / 2) * 100) / 100;
+    setValidationError(null);
+    const half = roundCurrency(total / 2);
     const defaultCust = customers[0];
     setSplitItems([
       {
@@ -249,7 +261,7 @@ export function CheckoutModal({
       {
         id: `split-credit-${Date.now()}`,
         method: 'credit',
-        amount: Math.round((total - half) * 100) / 100,
+        amount: roundCurrency(total - half),
         customerId: defaultCust?.id || '',
         customerName: defaultCust?.name || '',
       }
@@ -296,25 +308,21 @@ export function CheckoutModal({
   // Final submit
   const handleCompletePayment = async () => {
     if (isSubmitting) return;
+    setValidationError(null);
 
     // Validation
     if (selectedMethod === 'cash' && !isCashSufficient) {
+      setValidationError(`Cash tendered must be at least ₱${roundCurrency(total).toFixed(2)}.`);
       return;
     }
     if (selectedMethod === 'credit' && !selectedCustomerId) {
-      alert('Please select a customer for credit (utang) purchase.');
+      setValidationError('Please select a customer for credit (utang) purchase.');
       return;
     }
     if (selectedMethod === 'split') {
-      if (!isSplitBalanced) {
-        alert(`Split total must equal ₱${total.toFixed(2)}. Currently remaining: ₱${splitRemaining.toFixed(2)}`);
-        return;
-      }
-      const hasCreditPortionWithoutCustomer = splitItems.some(
-        item => item.method === 'credit' && item.amount > 0 && !item.customerId
-      );
-      if (hasCreditPortionWithoutCustomer) {
-        alert('Please select a customer for the credit portion in split payment.');
+      const splitValidation = validateSplitBreakdown(total, splitItems);
+      if (!splitValidation.valid) {
+        setValidationError(splitValidation.error || 'Please balance the split payment portions before finalizing.');
         return;
       }
     }
@@ -457,7 +465,7 @@ export function CheckoutModal({
               {/* Cash */}
               <button
                 type="button"
-                onClick={() => setSelectedMethod('cash')}
+                onClick={() => { setSelectedMethod('cash'); setValidationError(null); }}
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'cash'
                     ? 'border-orange-600 bg-orange-50/70 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 shadow-sm ring-2 ring-orange-500/20'
@@ -473,7 +481,7 @@ export function CheckoutModal({
               {/* GCash */}
               <button
                 type="button"
-                onClick={() => setSelectedMethod('gcash')}
+                onClick={() => { setSelectedMethod('gcash'); setValidationError(null); }}
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'gcash'
                     ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
@@ -489,7 +497,7 @@ export function CheckoutModal({
               {/* Bank Transfer */}
               <button
                 type="button"
-                onClick={() => setSelectedMethod('bank_transfer')}
+                onClick={() => { setSelectedMethod('bank_transfer'); setValidationError(null); }}
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'bank_transfer'
                     ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 shadow-sm ring-2 ring-indigo-500/20'
@@ -505,7 +513,7 @@ export function CheckoutModal({
               {/* Credit (Utang) */}
               <button
                 type="button"
-                onClick={() => setSelectedMethod('credit')}
+                onClick={() => { setSelectedMethod('credit'); setValidationError(null); }}
                 className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'credit'
                     ? 'border-purple-600 bg-purple-50/70 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 shadow-sm ring-2 ring-purple-500/20'
@@ -521,7 +529,7 @@ export function CheckoutModal({
               {/* Split Payment */}
               <button
                 type="button"
-                onClick={() => setSelectedMethod('split')}
+                onClick={() => { setSelectedMethod('split'); setValidationError(null); }}
                 className={`col-span-2 sm:col-span-1 p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 text-center cursor-pointer active:scale-95 ${
                   selectedMethod === 'split'
                     ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shadow-sm ring-2 ring-emerald-500/20'
@@ -535,6 +543,26 @@ export function CheckoutModal({
               </button>
             </div>
           </div>
+
+          {validationError && (
+            <div
+              role="alert"
+              className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-between gap-3 text-rose-800 dark:text-rose-200"
+            >
+              <div className="flex items-center gap-2.5 text-xs font-bold">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>{validationError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setValidationError(null)}
+                aria-label="Dismiss validation error"
+                className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/60 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Payment Specific Controls */}
           <div className="bg-gray-50/70 dark:bg-gray-800/40 rounded-[2rem] p-6 border border-gray-200 dark:border-gray-800">
@@ -724,7 +752,7 @@ export function CheckoutModal({
                       filteredCustomers.map((c) => (
                         <div
                           key={c.id}
-                          onClick={() => setSelectedCustomerId(c.id)}
+                          onClick={() => { setSelectedCustomerId(c.id); setValidationError(null); }}
                           className={`p-3.5 rounded-xl border-2 transition-all flex items-center justify-between cursor-pointer ${
                             selectedCustomerId === c.id
                               ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/50 shadow-xs'
@@ -796,11 +824,12 @@ export function CheckoutModal({
                   <button
                     type="button"
                     onClick={() => {
-                      const half = Math.round((total / 2) * 100) / 100;
+                      const half = roundCurrency(total / 2);
                       setSplitItems([
                         { id: `split-cash-${Date.now()}`, method: 'cash', amount: half },
-                        { id: `split-gcash-${Date.now()}`, method: 'gcash', amount: Math.round((total - half) * 100) / 100 }
+                        { id: `split-gcash-${Date.now()}`, method: 'gcash', amount: roundCurrency(total - half) }
                       ]);
+                      setValidationError(null);
                     }}
                     className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
                   >

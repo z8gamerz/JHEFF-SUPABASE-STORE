@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -13,10 +13,26 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+        >
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -24,7 +40,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
             onClick={onClose}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
           />
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -34,9 +50,10 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
             {/* Header */}
             <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/80 dark:bg-gray-800/60">
               <h3 className="text-xl font-black text-gray-950 dark:text-white tracking-tight uppercase">{title}</h3>
-              <button 
+              <button
                 type="button"
                 onClick={onClose}
+                aria-label="Close modal"
                 className="p-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl text-gray-700 dark:text-gray-200 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -64,51 +81,58 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   message: string;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'primary';
+  isLoading?: boolean;
 }
 
-export function ConfirmModal({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title, 
-  message, 
-  confirmText = 'Confirm', 
+export function ConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
   cancelText = 'Cancel',
-  variant = 'primary'
+  variant = 'primary',
+  isLoading = false,
 }: ConfirmModalProps) {
+  const handleConfirm = async () => {
+    if (isLoading) return;
+    await onConfirm();
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={isLoading ? () => {} : onClose}
       title={title}
       footer={
         <div className="flex gap-3">
           <button
             type="button"
+            disabled={isLoading}
             onClick={onClose}
-            className="flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
+            className="flex-1 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-all cursor-pointer"
           >
             {cancelText}
           </button>
           <button
             type="button"
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-            className={`flex-[2] px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white transition-all shadow-lg cursor-pointer ${
-              variant === 'danger' 
-                ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20' 
+            disabled={isLoading}
+            onClick={handleConfirm}
+            className={`flex-[2] px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white transition-all shadow-lg disabled:opacity-50 cursor-pointer ${
+              variant === 'danger'
+                ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20'
                 : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
             }`}
           >
-            {confirmText}
+            {isLoading ? 'Processing...' : confirmText}
           </button>
         </div>
       }

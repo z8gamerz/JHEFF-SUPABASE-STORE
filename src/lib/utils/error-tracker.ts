@@ -5,27 +5,41 @@ import { auditService } from '@/lib/services/audit-service';
 /**
  * Global Error Tracking & Diagnostics
  * Captures uncaught runtime errors, unhandled promise rejections,
+ * sanitizes sensitive auth/token query strings and bearer headers,
  * and records them safely to the local audit trail for offline survival.
  */
 
 let isInitialized = false;
+
+export function sanitizeErrorString(input: string): string {
+  if (!input) return '';
+  return String(input)
+    .replace(/([?&]auth=)[^&\s"'`]+/gi, '$1[REDACTED]')
+    .replace(/([?&]token=)[^&\s"'`]+/gi, '$1[REDACTED]')
+    .replace(/([?&]api[_-]?key=)[^&\s"'`]+/gi, '$1[REDACTED]')
+    .replace(/([?&]secret=)[^&\s"'`]+/gi, '$1[REDACTED]')
+    .replace(/(Bearer\s+)[A-Za-z0-9\-._~+/]+=*/gi, '$1[REDACTED]');
+}
 
 export function initErrorTracker() {
   if (typeof window === 'undefined' || isInitialized) return;
   isInitialized = true;
 
   window.addEventListener('error', (event) => {
-    const errorMsg = event.message || 'Unknown window error';
-    const source = `${event.filename || 'unknown'}:${event.lineno || 0}:${event.colno || 0}`;
+    const rawMsg = event.message || 'Unknown window error';
+    const rawSource = `${event.filename || 'unknown'}:${event.lineno || 0}:${event.colno || 0}`;
 
     // Filter out internal Vite HMR / dev websocket artifacts in iFrame preview
     if (
-      errorMsg.includes("reading 'send'") ||
-      errorMsg.includes('WebSocket') ||
+      rawMsg.includes("reading 'send'") ||
+      rawMsg.includes('WebSocket') ||
       (event.filename && event.filename.includes('@vite'))
     ) {
       return;
     }
+
+    const errorMsg = sanitizeErrorString(rawMsg);
+    const source = sanitizeErrorString(rawSource);
 
     console.error('[ErrorTracker] Uncaught error:', errorMsg, source);
 
@@ -39,16 +53,18 @@ export function initErrorTracker() {
   });
 
   window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason instanceof Error ? event.reason.message : String(event.reason);
+    const rawReason = event.reason instanceof Error ? event.reason.message : String(event.reason);
 
     // Filter out internal Vite HMR / dev websocket artifacts in iFrame preview
     if (
-      reason.includes("reading 'send'") || 
-      reason.includes('WebSocket') || 
-      reason.includes('@vite')
+      rawReason.includes("reading 'send'") ||
+      rawReason.includes('WebSocket') ||
+      rawReason.includes('@vite')
     ) {
       return;
     }
+
+    const reason = sanitizeErrorString(rawReason);
 
     console.error('[ErrorTracker] Unhandled Promise Rejection:', reason);
 

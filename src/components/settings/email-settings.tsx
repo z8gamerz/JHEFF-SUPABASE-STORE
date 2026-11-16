@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { metadataService } from '@/lib/services/metadata-service';
 import { auditService } from '@/lib/services/audit-service';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { apiFetch } from '@/lib/api-client';
 import { 
   Mail, 
   KeyRound, 
@@ -103,9 +104,8 @@ export function EmailSettings() {
     setTestResult(null);
 
     try {
-      const response = await fetch('/api/test-smtp', {
+      const response = await apiFetch('/api/test-smtp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderEmail: senderEmail.trim(),
           appPassword: appPassword.trim(),

@@ -7,6 +7,7 @@ import { Store, Mail, Lock, Loader2, ArrowRight, ShieldAlert, Clock, AlertTriang
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { getConfiguredRtdbUrl, getFirebaseAuthToken, getFirebaseConsoleUrl } from '@/lib/db/firebase-config';
 
 function LoginContent() {
   const [email, setEmail] = useState('');
@@ -28,9 +29,14 @@ function LoginContent() {
     setIsTestingConnection(true);
     setTestResult(null);
     try {
-      const BASE_URL = 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
-      const token = typeof window !== 'undefined' ? (localStorage.getItem('pos_firebase_auth_token') || '') : '';
-      const authQuery = token ? `?auth=${encodeURIComponent(token.trim())}` : '';
+      const BASE_URL = getConfiguredRtdbUrl();
+      if (!BASE_URL) {
+        setTestResult('Firebase Realtime Database URL is not configured. Please set VITE_FIREBASE_RTDB_URL or configure it in Store Settings.');
+        setIsTestingConnection(false);
+        return;
+      }
+      const token = getFirebaseAuthToken();
+      const authQuery = token ? `?auth=${encodeURIComponent(token)}` : '';
       const res = await fetch(`${BASE_URL}/users.json${authQuery}`, { headers: { 'Cache-Control': 'no-cache' } });
       if (res.ok) {
         if (typeof window !== 'undefined') {
@@ -156,7 +162,7 @@ function LoginContent() {
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-rose-200 dark:border-rose-900/60">
                   <a
-                    href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules"
+                    href={getFirebaseConsoleUrl('rules')}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-rose-700 dark:text-rose-400 underline font-black inline-flex items-center gap-1 hover:text-rose-900 text-[11px]"

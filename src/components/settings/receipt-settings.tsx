@@ -23,12 +23,16 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 
 export function ReceiptSettings() {
   const { store, updateReceiptSettings } = useStore();
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
 
   // Form state
   const [headerTitle, setHeaderTitle] = useState('');
@@ -129,30 +133,33 @@ export function ReceiptSettings() {
   };
 
   const handleResetDefaults = () => {
-    if (confirm('Ibalik sa standard default receipt settings?')) {
-      setHeaderTitle(store?.name || 'Sari-Sari Store');
-      setTagline('Ang Tindahan ng Bayan');
-      setAddress(store?.address || 'Poblacion, Brgy. Central, Manila');
-      setPhone('+63 917 123 4567');
-      setEmail('');
-      setTin(store?.tin || '000-123-456-000');
-      setPermitNumber('BP-2025-0819');
-      setOrPrefix('OR-');
-      setTicketPrefix('T-');
-      setHeaderGreeting('Maraming salamat sa pagtangkilik!');
-      setFooterGreeting('Salamat Po! Balik Kayo!');
-      setPolicyNotice('Palit-gamit sa loob ng 24 oras kasama ang resibo.\nBawal po ang utang.');
-      setDisclaimer('Official Sales Invoice & Receipt');
-      setShowAddress(true);
-      setShowPhone(true);
-      setShowTin(true);
-      setShowCashier(true);
-      setShowCustomer(true);
-      setShowTaxBreakdown(true);
-      setShowDateTime(true);
-      setPaperWidth('80mm');
-      setFontStyle('mono');
-    }
+    setIsResetConfirmOpen(true);
+  };
+
+  const confirmResetDefaults = () => {
+    setHeaderTitle(store?.name || 'Sari-Sari Store');
+    setTagline('Ang Tindahan ng Bayan');
+    setAddress(store?.address || 'Poblacion, Brgy. Central, Manila');
+    setPhone('+63 917 123 4567');
+    setEmail('');
+    setTin(store?.tin || '000-123-456-000');
+    setPermitNumber('BP-2025-0819');
+    setOrPrefix('OR-');
+    setTicketPrefix('T-');
+    setHeaderGreeting('Maraming salamat sa pagtangkilik!');
+    setFooterGreeting('Salamat Po! Balik Kayo!');
+    setPolicyNotice('Palit-gamit sa loob ng 24 oras kasama ang resibo.\nBawal po ang utang.');
+    setDisclaimer('Official Sales Invoice & Receipt');
+    setShowAddress(true);
+    setShowPhone(true);
+    setShowTin(true);
+    setShowCashier(true);
+    setShowCustomer(true);
+    setShowTaxBreakdown(true);
+    setShowDateTime(true);
+    setPaperWidth('80mm');
+    setFontStyle('mono');
+    toast.info('Defaults Restored', 'Receipt preview reset to defaults. Click save to apply.');
   };
 
   const handlePrintTest = () => {
@@ -733,6 +740,15 @@ export function ReceiptSettings() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isResetConfirmOpen}
+        onClose={() => setIsResetConfirmOpen(false)}
+        onConfirm={confirmResetDefaults}
+        title="Reset Receipt Settings"
+        message="Ibalik sa standard default receipt settings?"
+        confirmText="Reset Defaults"
+      />
     </div>
   );
 }

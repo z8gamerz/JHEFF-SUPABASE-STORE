@@ -37,6 +37,7 @@ import {
   createCustomMonSunRange 
 } from '@/lib/utils/weekly-date';
 import { generateReportEmailData } from '@/lib/utils/report-email-formatter';
+import { apiFetch } from '@/lib/api-client';
 
 interface EmailReportModalProps {
   isOpen: boolean;
@@ -204,9 +205,8 @@ export function EmailReportModal({
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/send-report-email', {
+      const response = await apiFetch('/api/send-report-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderEmail: senderEmail.trim(),
           appPassword: appPassword.trim(),

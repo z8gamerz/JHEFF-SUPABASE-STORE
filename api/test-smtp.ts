@@ -1,71 +1,33 @@
 import nodemailer from 'nodemailer';
-
-async function parseBody(req: any): Promise<any> {
-  if (req.body) {
-    if (typeof req.body === 'string') {
-      try {
-        return JSON.parse(req.body);
-      } catch {
-        return {};
-      }
-    }
-    return req.body;
-  }
-
-  if (req.readable && !req.complete) {
-    return new Promise((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => {
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      }, 1000);
-
-      req.on('data', (chunk: any) => { data += chunk; });
-      req.on('end', () => {
-        clearTimeout(timer);
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      });
-      req.on('error', () => {
-        clearTimeout(timer);
-        resolve({});
-      });
-    });
-  }
-
-  return {};
-}
+import { applyApiGuards, parseJsonBody, requireEnv } from './_security.js';
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
+  if (
+    !applyApiGuards(req, res, {
+      methods: 'POST, OPTIONS',
+      rateKey: 'test-smtp',
+      rateLimitMax: 10,
+      maxBodyBytes: 32 * 1024,
+      requireAuth: true,
+    })
+  ) {
+    return;
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  const parsed = await parseJsonBody(req, 32 * 1024);
+  if (!parsed.ok) {
+    return res.status(parsed.status).json({ success: false, error: parsed.error });
   }
 
   try {
-    const body = await parseBody(req);
-    const senderEmail = (body?.senderEmail || process.env.SMTP_SENDER_EMAIL || process.env.GMAIL_USER || '').trim();
-    const appPassword = (body?.appPassword || process.env.SMTP_APP_PASSWORD || process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
+    const body = parsed.body;
+    const senderEmail = (body?.senderEmail || requireEnv('SMTP_SENDER_EMAIL', 'GMAIL_USER')).trim();
+    const appPassword = (body?.appPassword || requireEnv('SMTP_APP_PASSWORD', 'GMAIL_APP_PASSWORD')).replace(/\s+/g, '');
 
     if (!senderEmail || !appPassword) {
       return res.status(400).json({
         success: false,
-        error: 'Gmail address and Google App Password are required. Either configure them in Settings -> Email & Reports or set SMTP_SENDER_EMAIL and SMTP_APP_PASSWORD in Vercel environment variables.'
+        error: 'Gmail address and Google App Password are required. Configure them in Settings -> Email & Reports or set SMTP_SENDER_EMAIL and SMTP_APP_PASSWORD.',
       });
     }
 
@@ -89,18 +51,21 @@ export default async function handler(req: any, res: any) {
     await transporter.verify();
     return res.status(200).json({
       success: true,
-      message: 'SMTP credentials verified successfully! Google App Password is authenticated and ready to dispatch reports on Vercel.'
+      message: 'SMTP credentials verified successfully! Google App Password is authenticated and ready to dispatch reports.',
     });
   } catch (err: any) {
-    console.error('[API Test SMTP Error]:', err);
-    let errorDetail = err?.message || 'Failed to authenticate with Gmail SMTP.';
-    if (errorDetail.includes('535') || errorDetail.includes('BadCredentials') || errorDetail.includes('Username and Password not accepted')) {
-      errorDetail = 'Hindi tinanggap ng Gmail ang credentials (535 Bad Credentials). Siguraduhing may 2-Step Verification ang Google account at gumamit ng 16-character Google App Password (hindi regular account password).';
-    }
+    console.error('[API Test SMTP Error]:', err?.message || err);
+    const rawMsg = String(err?.message || '');
+    const isAuthFailure =
+      rawMsg.includes('535') ||
+      rawMsg.includes('BadCredentials') ||
+      rawMsg.includes('Username and Password not accepted');
+
     return res.status(400).json({
       success: false,
-      error: errorDetail
+      error: isAuthFailure
+        ? 'Hindi tinanggap ng Gmail ang credentials (535 Bad Credentials). Siguraduhing may 2-Step Verification ang Google account at gumamit ng 16-character Google App Password.'
+        : 'Failed to authenticate with Gmail SMTP. Please verify your network connection and credentials.',
     });
   }
 }
-

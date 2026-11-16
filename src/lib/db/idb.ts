@@ -142,6 +142,8 @@ export type SyncAction = {
   timestamp: number;
   status: 'pending' | 'processing' | 'failed';
   retryCount: number;
+  nextRetryAt?: number;
+  lastError?: string;
 };
 
 export type EWalletTransaction = {

@@ -13,6 +13,9 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { Expense } from '@/lib/db/idb';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
+import { roundCurrency } from '@/lib/utils/financial';
 
 export default function ExpensesPage() {
   const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
@@ -29,6 +32,23 @@ export default function ExpensesPage() {
   const [category, setCategory] = useState<'Utilities' | 'Rent' | 'Salary' | 'Inventory Restock' | 'Snacks / Refreshments' | 'Marketing' | 'Others'>('Others');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const toast = useToast();
+
+  const confirmDeleteExpense = async () => {
+    if (!deletingExpenseId) return;
+    setIsDeleting(true);
+    try {
+      await deleteExpense(deletingExpenseId);
+      toast.success('Expense Deleted', 'Expense record has been removed.');
+    } catch (error) {
+      toast.error('Delete Failed', error instanceof Error ? error.message : 'Unable to delete expense.');
+    } finally {
+      setIsDeleting(false);
+      setDeletingExpenseId(null);
+    }
+  };
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +140,9 @@ export default function ExpensesPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const totalExpenseSum = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenseSum = roundCurrency(
+    filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+  );
 
   return (
     <AuthGuard>
@@ -284,11 +306,7 @@ export default function ExpensesPage() {
                             <td className="py-5 px-8 text-center whitespace-nowrap">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (confirm('Are you sure you want to delete this expense?')) {
-                                    deleteExpense(expense.id);
-                                  }
-                                }}
+                                onClick={() => setDeletingExpenseId(expense.id)}
                                 className="p-3 text-gray-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-rose-950/40 rounded-xl transition-all cursor-pointer border-none bg-transparent"
                                 title="Delete expense"
                               >
@@ -408,6 +426,17 @@ export default function ExpensesPage() {
             </div>
           )}
         </AnimatePresence>
+
+        <ConfirmModal
+          isOpen={!!deletingExpenseId}
+          onClose={() => setDeletingExpenseId(null)}
+          onConfirm={confirmDeleteExpense}
+          title="Delete Expense"
+          message="Are you sure you want to delete this expense? This action cannot be undone."
+          confirmText="Delete Expense"
+          variant="danger"
+          isLoading={isDeleting}
+        />
       </div>
     </AuthGuard>
   );

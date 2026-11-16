@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import { format, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import Papa from 'papaparse';
+import { roundCurrency } from '@/lib/utils/financial';
 
 export default function SalesJournalPage() {
   const { transactions, loading } = useTransactions();
@@ -43,20 +44,25 @@ export default function SalesJournalPage() {
   }, [transactions, startDate, endDate, searchQuery]);
 
   const totals = useMemo(() => {
-    return filteredTransactions.reduce((acc, t) => ({
-      totalSales: acc.totalSales + t.total,
+    const raw = filteredTransactions.reduce((acc, t) => ({
+      totalSales: acc.totalSales + (t.total || 0),
       vatAmount: acc.vatAmount + (t.vatAmount || 0),
-      netSales: acc.netSales + (t.vatableSales || (t.total - (t.vatAmount || 0))),
+      netSales: acc.netSales + (t.vatableSales ?? roundCurrency((t.total || 0) - (t.vatAmount || 0))),
     }), { totalSales: 0, vatAmount: 0, netSales: 0 });
+    return {
+      totalSales: roundCurrency(raw.totalSales),
+      vatAmount: roundCurrency(raw.vatAmount),
+      netSales: roundCurrency(raw.netSales),
+    };
   }, [filteredTransactions]);
 
   const handleExport = () => {
     const exportData = filteredTransactions.map(t => ({
       Date: format(t.timestamp, 'yyyy-MM-dd'),
       'OR Number': t.orNumber || 'N/A',
-      'Total Sales': t.total.toFixed(2),
-      VAT: (t.vatAmount || 0).toFixed(2),
-      'Net Sales': (t.vatableSales || (t.total - (t.vatAmount || 0))).toFixed(2)
+      'Total Sales': roundCurrency(t.total).toFixed(2),
+      VAT: roundCurrency(t.vatAmount || 0).toFixed(2),
+      'Net Sales': roundCurrency(t.vatableSales ?? (t.total - (t.vatAmount || 0))).toFixed(2)
     }));
 
     const csv = Papa.unparse(exportData);
@@ -181,7 +187,7 @@ export default function SalesJournalPage() {
                             ₱{(t.vatAmount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                           </td>
                           <td className="px-6 py-4 text-right font-black text-gray-950 dark:text-white">
-                            ₱{(t.vatableSales || (t.total - (t.vatAmount || 0))).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                            ₱{roundCurrency(t.vatableSales ?? (t.total - (t.vatAmount || 0))).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
                       ))}

@@ -1,50 +1,12 @@
-async function parseBody(req: any): Promise<any> {
-  if (req.body) {
-    if (typeof req.body === 'string') {
-      try {
-        return JSON.parse(req.body);
-      } catch {
-        return {};
-      }
-    }
-    return req.body;
-  }
-
-  if (req.readable && !req.complete) {
-    return new Promise((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => {
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      }, 1000);
-
-      req.on('data', (chunk: any) => { data += chunk; });
-      req.on('end', () => {
-        clearTimeout(timer);
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      });
-      req.on('error', () => {
-        clearTimeout(timer);
-        resolve({});
-      });
-    });
-  }
-
-  return {};
-}
+import { applyApiGuards, parseJsonBody, requireEnv } from './_security.js';
 
 function isAllowedFirebaseUrl(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr);
-    return parsed.protocol === 'https:' && 
-      (parsed.hostname.endsWith('.firebasedatabase.app') || parsed.hostname.endsWith('.firebaseio.com'));
+    return (
+      parsed.protocol === 'https:' &&
+      (parsed.hostname.endsWith('.firebasedatabase.app') || parsed.hostname.endsWith('.firebaseio.com'))
+    );
   } catch {
     return false;
   }
@@ -52,143 +14,132 @@ function isAllowedFirebaseUrl(urlStr: string): boolean {
 
 export const SECURE_PRODUCTION_RULES = {
   rules: {
-    // 1. Store Global Configuration (TIN, Tax, OR Number) - Admin only writes
     store_info: {
-      ".read": true,
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+      '.read': true,
+      '.write': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
     },
-
-    // 2. Branches Management - Admin only writes
     branches: {
-      ".read": true,
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+      '.read': true,
+      '.write': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
     },
-
-    // 3. User Accounts - Read-only for authentication; writes restricted to user or admin
     users: {
-      ".read": true,
-      "$uid": {
-        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin')"
-      }
+      '.read': true,
+      $uid: {
+        '.write': "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin')",
+      },
     },
-
-    // 4. Products & Stock Inventory - Read-only for guests, authenticated-only writes.
-    // Supports standard items (pc) and weight-based products (kg, g, etc.) with decimal stock & unit definitions.
     products: {
-      ".read": true,
-      "$productId": {
-        ".write": "auth != null && newData.hasChildren(['name', 'price']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && (!newData.hasChild('stock') || newData.child('stock').isNumber()) && (!newData.hasChild('isWeightBased') || newData.child('isWeightBased').isBoolean()) && (!newData.hasChild('unit') || newData.child('unit').isString())"
-      }
+      '.read': true,
+      $productId: {
+        '.write': "auth != null && newData.hasChildren(['name', 'price']) && newData.child('price').isNumber() && newData.child('price').val() >= 0 && (!newData.hasChild('stock') || newData.child('stock').isNumber()) && (!newData.hasChild('isWeightBased') || newData.child('isWeightBased').isBoolean()) && (!newData.hasChild('unit') || newData.child('unit').isString())",
+      },
     },
-
-    // 5. Sales Transactions - Append-only, cannot be deleted or modified.
-    // Supports decimal quantities for weight-based items (e.g. 1.25 kg)
     transactions: {
-      ".read": true,
-      "$txnId": {
-        ".write": "auth != null && !data.exists() && newData.hasChildren(['ticketNumber', 'total', 'branchId', 'timestamp'])"
-      }
+      '.read': true,
+      $txnId: {
+        '.write': "auth != null && !data.exists() && newData.hasChildren(['ticketNumber', 'total', 'branchId', 'timestamp'])",
+      },
     },
-
-    // 6. Customers Directory
     customers: {
-      ".read": true,
-      "$customerId": {
-        ".write": "auth != null && newData.hasChildren(['name', 'updatedAt'])"
-      }
+      '.read': true,
+      $customerId: {
+        '.write': "auth != null && newData.hasChildren(['name', 'updatedAt'])",
+      },
     },
-
-    // 7. Utang / Customer Credit Ledger - Append-only ledger
     credit_log: {
-      ".read": true,
-      "$logId": {
-        ".write": "auth != null && !data.exists() && newData.hasChildren(['customerId', 'amount', 'type', 'timestamp'])"
-      }
+      '.read': true,
+      $logId: {
+        '.write': "auth != null && !data.exists() && newData.hasChildren(['customerId', 'amount', 'type', 'timestamp'])",
+      },
     },
-
-    // 8. Operational Expenses
     expenses: {
-      ".read": true,
-      "$expenseId": {
-        ".write": "auth != null && newData.hasChildren(['description', 'amount', 'branchId'])"
-      }
+      '.read': true,
+      $expenseId: {
+        '.write': "auth != null && newData.hasChildren(['description', 'amount', 'branchId'])",
+      },
     },
-
-    // 9. Suppliers & Restock Transactions
     suppliers: {
-      ".read": true,
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+      '.read': true,
+      '.write': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
     },
     restock_transactions: {
-      ".read": true,
-      "$restockId": {
-        ".write": "auth != null && !data.exists()"
-      }
+      '.read': true,
+      $restockId: {
+        '.write': 'auth != null && !data.exists()',
+      },
     },
-
-    // 10. E-Wallet Transactions
     ewallet_transactions: {
-      ".read": true,
-      "$ewalletId": {
-        ".write": "auth != null && !data.exists()"
-      }
+      '.read': true,
+      $ewalletId: {
+        '.write': 'auth != null && !data.exists()',
+      },
     },
-
-    // 11. Security Audit Logs - Append-only, cannot be modified or deleted
     audit_logs: {
-      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
-      "$auditId": {
-        ".write": "auth != null && !data.exists() && newData.hasChildren(['action', 'timestamp'])"
-      }
+      '.read': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      $auditId: {
+        '.write': "auth != null && !data.exists() && newData.hasChildren(['action', 'timestamp'])",
+      },
     },
-
-    // 12. Email SMTP & System Metadata
     metadata: {
-      ".read": true,
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
-    }
-  }
+      '.read': true,
+      '.write': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+    },
+  },
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
+  if (
+    !applyApiGuards(req, res, {
+      methods: 'GET, POST, OPTIONS',
+      rateKey: 'update-firebase-rules',
+      rateLimitMax: 10,
+      maxBodyBytes: 64 * 1024,
+      requireAuth: true,
+    })
+  ) {
+    return;
   }
 
-  const defaultUrl = process.env.VITE_FIREBASE_RTDB_URL || 
-    'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
+  const configuredUrl = requireEnv('VITE_FIREBASE_RTDB_URL', 'FIREBASE_RTDB_URL').replace(/\/$/, '');
 
-  // GET: Scan / Probe Rules status
   if (req.method === 'GET') {
+    const parsedReqUrl = new URL(req.url || '/api/update-firebase-rules', 'http://localhost');
+    const queryUrl = (parsedReqUrl.searchParams.get('databaseUrl') || '').trim().replace(/\/$/, '');
+    const baseUrl = queryUrl || configuredUrl;
+
+    if (!baseUrl) {
+      return res.status(200).json({
+        success: false,
+        configured: false,
+        error: 'Firebase RTDB URL is not configured (set VITE_FIREBASE_RTDB_URL).',
+      });
+    }
+
+    if (!isAllowedFirebaseUrl(baseUrl)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid database URL. Only official Google Firebase Realtime Database URLs (*.firebasedatabase.app) are allowed.',
+      });
+    }
+
     try {
-      const baseUrl = defaultUrl.replace(/\/$/, '');
-      const secret = req.query?.secret || process.env.FIREBASE_DATABASE_SECRET || process.env.VITE_FIREBASE_AUTH_TOKEN;
-      
-      // Probe 1: Check if public read is active on users
+      const secret = requireEnv('FIREBASE_DATABASE_SECRET', 'VITE_FIREBASE_AUTH_TOKEN');
+
       const readProbe = await fetch(`${baseUrl}/users.json?shallow=true`, { headers: { 'Cache-Control': 'no-cache' } });
       const canRead = readProbe.ok;
 
-      // Probe 2: Check if unauthenticated writes are open (vulnerability probe)
       const probeKey = `_sec_scan_${Date.now()}`;
       const writeProbe = await fetch(`${baseUrl}/_security_probe/${probeKey}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: Date.now(), test: true })
+        body: JSON.stringify({ timestamp: Date.now(), test: true }),
       });
       const canWriteUnauthenticated = writeProbe.ok;
 
-      // If write succeeded, clean it up
       if (canWriteUnauthenticated) {
         await fetch(`${baseUrl}/_security_probe/${probeKey}.json`, { method: 'DELETE' }).catch(() => {});
       }
 
-      // Probe 3: Try to inspect rules directly if secret is provided
       let currentRules: any = null;
       if (secret) {
         try {
@@ -205,6 +156,7 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({
         success: true,
+        configured: true,
         scan: {
           canRead,
           canWriteUnauthenticated,
@@ -215,41 +167,53 @@ export default async function handler(req: any, res: any) {
           currentRules,
           databaseUrl: baseUrl,
           timestamp: Date.now(),
-        }
+        },
       });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message || 'Failed to scan database rules.' });
+      return res.status(500).json({ success: false, error: 'Failed to scan database rules.' });
     }
   }
 
-  // POST: Programmatically apply secure production rules
   if (req.method === 'POST') {
+    const parsed = await parseJsonBody(req, 64 * 1024);
+    if (!parsed.ok) {
+      return res.status(parsed.status).json({ success: false, error: parsed.error });
+    }
+
     try {
-      const body = await parseBody(req);
-      const secret = (body?.secret || process.env.FIREBASE_DATABASE_SECRET || process.env.VITE_FIREBASE_AUTH_TOKEN || '').trim();
-      const inputUrl = (body?.databaseUrl || defaultUrl).trim().replace(/\/$/, '');
+      const body = parsed.body;
+      const secret = (body?.secret || requireEnv('FIREBASE_DATABASE_SECRET', 'VITE_FIREBASE_AUTH_TOKEN')).trim();
+      const inputUrl = (body?.databaseUrl || configuredUrl).trim().replace(/\/$/, '');
+
+      if (!inputUrl) {
+        return res.status(503).json({
+          success: false,
+          configured: false,
+          error: 'Firebase RTDB URL is not configured (set VITE_FIREBASE_RTDB_URL or supply databaseUrl).',
+        });
+      }
+
       if (!isAllowedFirebaseUrl(inputUrl)) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid database URL. Only official Google Firebase Realtime Database URLs (*.firebasedatabase.app) are allowed.'
+          error: 'Invalid database URL. Only official Google Firebase Realtime Database URLs (*.firebasedatabase.app) are allowed.',
         });
       }
-      const baseUrl = inputUrl;
-      const rulesToApply = body?.rules || SECURE_PRODUCTION_RULES;
 
       if (!secret) {
         return res.status(400).json({
           success: false,
           requiresSecret: true,
-          error: 'Firebase Database Secret is required to programmatically update rules via REST API. You can find this in Firebase Console -> Project Settings -> Service accounts -> Database secrets.'
+          error: 'Firebase Database Secret is required to programmatically update rules via REST API.',
         });
       }
 
-      const rulesUrl = `${baseUrl}/.settings/rules.json?auth=${encodeURIComponent(secret)}`;
+      const rulesToApply = body?.rules || SECURE_PRODUCTION_RULES;
+      const rulesUrl = `${inputUrl}/.settings/rules.json?auth=${encodeURIComponent(secret)}`;
       const updateRes = await fetch(rulesUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rulesToApply)
+        body: JSON.stringify(rulesToApply),
       });
 
       const responseText = await updateRes.text();
@@ -267,11 +231,11 @@ export default async function handler(req: any, res: any) {
         success: true,
         message: 'Firebase Realtime Database rules successfully updated to Secure Production Defaults!',
         rules: rulesToApply,
-        appliedAt: Date.now()
+        appliedAt: Date.now(),
       });
     } catch (err: any) {
-      console.error('[Update Firebase Rules Error]:', err);
-      return res.status(500).json({ success: false, error: err?.message || 'Failed to update Firebase rules.' });
+      console.error('[Update Firebase Rules Error]:', err?.message || err);
+      return res.status(500).json({ success: false, error: 'Failed to update Firebase rules.' });
     }
   }
 

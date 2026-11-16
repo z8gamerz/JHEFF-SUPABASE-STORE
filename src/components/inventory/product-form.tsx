@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { useBranches } from '@/lib/hooks/use-branches';
 import { useCategories } from '@/lib/hooks/use-categories';
+import { useToast } from '@/components/ui/toast';
 
 interface ProductFormProps {
   product?: Product | null;
@@ -29,6 +30,8 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
     isWeightBased: false,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const toast = useToast();
   const { categories, addCategory } = useCategories(formData.branchId || currentBranchId || undefined);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
@@ -61,8 +64,9 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!formData.branchId) {
-      alert('Please select a branch.');
+      setFormError('Please select a branch before saving this product.');
       return;
     }
     setIsSaving(true);
@@ -90,6 +94,9 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
       onClose();
     } catch (error) {
       console.error('Save failed:', error);
+      const message = error instanceof Error ? error.message : 'Unable to save product.';
+      setFormError(message);
+      toast.error('Save Failed', message);
     } finally {
       setIsSaving(false);
     }
@@ -122,6 +129,15 @@ export function ProductForm({ product, onSave, onClose }: ProductFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
+          {formError && (
+            <div
+              role="alert"
+              className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center gap-2"
+            >
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-5">
             <div>
               <label className="flex items-center gap-2 text-xs font-black text-gray-950 dark:text-gray-100 uppercase tracking-wider mb-1.5">

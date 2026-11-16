@@ -7,11 +7,16 @@ import { User as UserIcon, Plus, Mail, Shield, Edit2, Trash2, Loader2, UserCircl
 import { motion, AnimatePresence } from 'motion/react';
 import { UserForm } from '@/components/users/user-form';
 import { hashPassword } from '@/lib/security/auth-crypto';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
   const { users, loading, createUser, updateUser, deleteUser } = useUsers();
   const [editingUser, setEditingUser] = useState<any | null | 'new'>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const toast = useToast();
 
   const handleSaveUser = async (formData: any) => {
     try {
@@ -46,13 +51,25 @@ export function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleDeleteUser = (id: string) => {
     if (id === currentUser?.id) {
-      alert("You cannot delete your own account.");
+      toast.error('Action Blocked', 'You cannot delete your own account.');
       return;
     }
-    if (confirm('Are you sure you want to delete this user?')) {
-      await deleteUser(id);
+    setDeletingUserId(id);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deletingUserId) return;
+    setIsDeleting(true);
+    try {
+      await deleteUser(deletingUserId);
+      toast.success('User Deleted', 'Staff account has been removed.');
+    } catch (err) {
+      toast.error('Delete Failed', err instanceof Error ? err.message : 'Unable to delete user.');
+    } finally {
+      setIsDeleting(false);
+      setDeletingUserId(null);
     }
   };
 
@@ -143,6 +160,17 @@ export function UserManagement() {
           />
         )}
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={!!deletingUserId}
+        onClose={() => setDeletingUserId(null)}
+        onConfirm={confirmDeleteUser}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete User"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

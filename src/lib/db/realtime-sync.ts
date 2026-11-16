@@ -1,6 +1,7 @@
 'use client';
 
 import { dbUtil, STORES, StoreName } from './idb';
+import { getConfiguredRtdbUrl, getFirebaseAuthToken } from './firebase-config';
 
 /**
  * Realtime Webhook & SSE Stream Manager
@@ -64,11 +65,7 @@ class RealtimeSyncManager {
   }
 
   private getBaseUrl(): string {
-    if (this.baseUrl) return this.baseUrl;
-    const url = ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 
-      'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
-    this.baseUrl = url;
-    return url;
+    return getConfiguredRtdbUrl();
   }
 
   public getStatus(): RealtimeStatus {
@@ -192,18 +189,18 @@ class RealtimeSyncManager {
       this.eventSource = null;
     }
 
+    const baseUrl = this.getBaseUrl();
+    if (!baseUrl) {
+      this.setStatus('disconnected');
+      return;
+    }
+
     this.setStatus('connecting');
 
     try {
-      const token = typeof window !== 'undefined' ? (
-        localStorage.getItem('pos_firebase_auth_token') || 
-        localStorage.getItem('firebase_database_secret') ||
-        sessionStorage.getItem('pos_firebase_auth_token') ||
-        (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || 
-        ''
-      ) : '';
-      const authQuery = token ? `?auth=${encodeURIComponent(token.trim())}` : '';
-      const url = `${this.getBaseUrl()}/.json${authQuery}`;
+      const token = getFirebaseAuthToken();
+      const authQuery = token ? `?auth=${encodeURIComponent(token)}` : '';
+      const url = `${baseUrl}/.json${authQuery}`;
       const es = new EventSource(url);
       this.eventSource = es;
 

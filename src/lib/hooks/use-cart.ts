@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Product, TransactionItem } from '@/lib/db/idb';
+import { roundCurrency, roundQuantity } from '@/lib/utils/financial';
 
 export function useCart() {
   const [cart, setCart] = useState<TransactionItem[]>([]);
@@ -14,7 +15,7 @@ export function useCart() {
       if (existing) {
         return prev.map((item) =>
           item.productId === product.id
-            ? { ...item, quantity: Math.round((item.quantity + 1) * 1000) / 1000 }
+            ? { ...item, quantity: roundQuantity(item.quantity + 1, Boolean(item.isWeightBased)) }
             : item
         );
       }
@@ -42,8 +43,8 @@ export function useCart() {
       prev
         .map((item) => {
           if (item.productId === productId) {
-            const nextQty = Math.round((item.quantity + delta) * 1000) / 1000;
-            return { ...item, quantity: Math.max(0, nextQty) };
+            const nextQty = roundQuantity(Math.max(0, item.quantity + delta), Boolean(item.isWeightBased));
+            return { ...item, quantity: nextQty };
           }
           return item;
         })
@@ -52,12 +53,14 @@ export function useCart() {
   }, []);
 
   const setItemQuantity = useCallback((productId: string, quantity: number) => {
-    const validQty = Math.max(0, Math.round(quantity * 1000) / 1000);
     setCart((prev) =>
       prev
         .map((item) =>
           item.productId === productId
-            ? { ...item, quantity: validQty }
+            ? {
+                ...item,
+                quantity: roundQuantity(Math.max(0, quantity), Boolean(item.isWeightBased)),
+              }
             : item
         )
         .filter((item) => item.quantity > 0)
@@ -68,7 +71,9 @@ export function useCart() {
     setCart([]);
   }, []);
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = roundCurrency(
+    cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  );
 
   return {
     cart,

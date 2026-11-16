@@ -37,6 +37,8 @@ import {
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { useToast } from '@/components/ui/toast';
+import { computeVatBreakdown, computeRemainingStock } from '@/lib/utils/financial';
 
 export default function POSPage() {
   const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
@@ -48,6 +50,7 @@ export default function POSPage() {
   const { currentTicket, rotateTicket } = useTicket(currentBranchId || undefined);
   const { addTransaction: addEWalletTransaction } = useEWallet(currentBranchId || undefined);
   const { showReceipt } = useReceipt();
+  const toast = useToast();
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,13 +167,11 @@ export default function POSPage() {
       const orNumber = await getNextORNumber();
       
       // Calculate VAT if enabled
-      let vatableSales = 0;
-      let vatAmount = 0;
-      if (store?.taxType === 'VAT') {
-        const rate = (store.vatRate || 12) / 100;
-        vatableSales = total / (1 + rate);
-        vatAmount = total - vatableSales;
-      }
+      const { vatableSales, vatAmount } = computeVatBreakdown(
+        total,
+        store?.taxType || 'NON-VAT',
+        store?.vatRate || 12
+      );
 
       // 1. Process credit account balances
       if (result.paymentMethod === 'credit' && result.customerId) {
@@ -230,7 +231,11 @@ export default function POSPage() {
       for (const item of cart) {
         const product = products.find(p => p.id === item.productId);
         if (product) {
-          const nextStock = Math.max(0, Math.round((product.stock - item.quantity) * 1000) / 1000);
+          const nextStock = computeRemainingStock(
+            product.stock,
+            item.quantity,
+            Boolean(product.isWeightBased || item.isWeightBased)
+          );
           await updateProduct({
             ...product,
             stock: nextStock,
@@ -267,7 +272,10 @@ export default function POSPage() {
       setShowCartMobile(false);
     } catch (error) {
       console.error('Checkout failed:', error);
-      alert('Failed to complete checkout. Please check the logs.');
+      toast.error(
+        'Checkout Failed',
+        error instanceof Error ? error.message : 'Unable to complete checkout. Please try again.'
+      );
     } finally {
       setIsCheckingOut(false);
     }

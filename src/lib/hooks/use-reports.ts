@@ -7,6 +7,7 @@ import { ewalletService } from '@/lib/services/ewallet-service';
 import { customerService } from '@/lib/services/customer-service';
 import { productService } from '@/lib/services/product-service';
 import { expenseService } from '@/lib/services/expense-service';
+import { roundCurrency, roundQuantity } from '@/lib/utils/financial';
 
 export type SalesData = {
   date: string;
@@ -101,15 +102,15 @@ export function useReports(branchId?: string) {
       const dateStr = new Date(t.timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
       if (dailySalesMap.has(dateStr)) {
         const data = dailySalesMap.get(dateStr)!;
-        data.amount += t.total;
+        data.amount = roundCurrency(data.amount + t.total);
         
         // Calculate cost for this transaction
         const transactionCost = t.items.reduce((sum, item) => sum + (item.costPrice || 0) * item.quantity, 0);
-        data.profit = (data.profit || 0) + (t.total - transactionCost);
+        data.profit = roundCurrency((data.profit || 0) + (t.total - transactionCost));
 
         // Also track per branch if we are in "All Branches" mode
         if (!branchId) {
-          data[t.branchId] = (data[t.branchId] || 0) + t.total;
+          data[t.branchId] = roundCurrency((data[t.branchId] || 0) + t.total);
         }
       }
     });
@@ -124,12 +125,12 @@ export function useReports(branchId?: string) {
         // Since TransactionItem doesn't have category, we look it up from products state
         const product = products.find(p => p.id === item.productId);
         const category = product?.category || 'Uncategorized';
-        categoryMap.set(category, (categoryMap.get(category) || 0) + (item.price * item.quantity));
+        categoryMap.set(category, roundCurrency((categoryMap.get(category) || 0) + (item.price * item.quantity)));
       });
     });
 
     const categoryChartData: CategoryData[] = Array.from(categoryMap.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name, value: roundCurrency(value) }))
       .sort((a, b) => b.value - a.value);
 
     // Top Products
@@ -137,9 +138,9 @@ export function useReports(branchId?: string) {
     filteredTransactions.forEach(t => {
       t.items.forEach(item => {
         const stats = productStatsMap.get(item.productId) || { name: item.name, quantity: 0, revenue: 0, profit: 0 };
-        stats.quantity += item.quantity;
-        stats.revenue += item.price * item.quantity;
-        stats.profit += (item.price - (item.costPrice || 0)) * item.quantity;
+        stats.quantity = roundQuantity(stats.quantity + item.quantity, true);
+        stats.revenue = roundCurrency(stats.revenue + item.price * item.quantity);
+        stats.profit = roundCurrency(stats.profit + (item.price - (item.costPrice || 0)) * item.quantity);
         productStatsMap.set(item.productId, stats);
       });
     });
@@ -151,19 +152,16 @@ export function useReports(branchId?: string) {
     // Branch-wise stats (only if all branches are selected)
     const branchStatsMap = new Map<string, { name: string; sales: number; transactions: number; utang: number }>();
     
-    // We need branch names, so we might need to fetch branches too or pass them in.
-    // For now, let's just use the branchId as key and we'll handle names in the UI or fetch them here.
-    
     transactions.forEach(t => {
       const stats = branchStatsMap.get(t.branchId) || { name: 'Unknown Branch', sales: 0, transactions: 0, utang: 0 };
-      stats.sales += t.total;
+      stats.sales = roundCurrency(stats.sales + t.total);
       stats.transactions += 1;
       branchStatsMap.set(t.branchId, stats);
     });
 
     customers.forEach(c => {
       const stats = branchStatsMap.get(c.branchId) || { name: 'Unknown Branch', sales: 0, transactions: 0, utang: 0 };
-      stats.utang += (Number(c.totalUtang) || 0);
+      stats.utang = roundCurrency(stats.utang + (Number(c.totalUtang) || 0));
       branchStatsMap.set(c.branchId, stats);
     });
 
@@ -173,9 +171,9 @@ export function useReports(branchId?: string) {
     }));
 
     // Summaries
-    const totalSales = filteredTransactions.reduce((sum, t) => sum + t.total, 0);
-    const totalVatCollected = filteredTransactions.reduce((sum, t) => sum + (t.vatAmount || 0), 0);
-    const totalVatableSales = filteredTransactions.reduce((sum, t) => sum + (t.vatableSales || 0), 0);
+    const totalSales = roundCurrency(filteredTransactions.reduce((sum, t) => sum + t.total, 0));
+    const totalVatCollected = roundCurrency(filteredTransactions.reduce((sum, t) => sum + (t.vatAmount || 0), 0));
+    const totalVatableSales = roundCurrency(filteredTransactions.reduce((sum, t) => sum + (t.vatableSales || 0), 0));
     
     // OR Range
     const orNumbers = filteredTransactions.map(t => t.orNumber).filter(Boolean) as string[];
@@ -184,24 +182,24 @@ export function useReports(branchId?: string) {
       end: orNumbers.sort()[orNumbers.length - 1]
     } : null;
 
-    const totalCost = filteredTransactions.reduce((sum, t) => {
+    const totalCost = roundCurrency(filteredTransactions.reduce((sum, t) => {
       return sum + t.items.reduce((iSum, item) => iSum + (item.costPrice || 0) * item.quantity, 0);
-    }, 0);
-    const totalProfitBeforeExpenses = totalSales - totalCost;
+    }, 0));
+    const totalProfitBeforeExpenses = roundCurrency(totalSales - totalCost);
     
     // Expenses
     const filteredExpenses = expenses.filter(e => e.timestamp >= cutoff);
-    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalProfit = totalProfitBeforeExpenses - totalExpenses;
+    const totalExpenses = roundCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0));
+    const totalProfit = roundCurrency(totalProfitBeforeExpenses - totalExpenses);
 
     const totalTransactions = filteredTransactions.length;
-    const totalUtang = customers.reduce((sum, c) => sum + (Number(c.totalUtang) || 0), 0);
+    const totalUtang = roundCurrency(customers.reduce((sum, c) => sum + (Number(c.totalUtang) || 0), 0));
 
     // E-Wallet Summaries
     const filteredEwallet = ewalletTransactions.filter(ew => ew.createdAt >= cutoff);
-    const totalCashIn = filteredEwallet.filter(ew => ew.type === 'cash_in').reduce((sum, ew) => sum + ew.amount, 0);
-    const totalCashOut = filteredEwallet.filter(ew => ew.type === 'cash_out').reduce((sum, ew) => sum + ew.amount, 0);
-    const totalEwalletFees = filteredEwallet.reduce((sum, ew) => sum + (ew.fee || 0), 0);
+    const totalCashIn = roundCurrency(filteredEwallet.filter(ew => ew.type === 'cash_in').reduce((sum, ew) => sum + ew.amount, 0));
+    const totalCashOut = roundCurrency(filteredEwallet.filter(ew => ew.type === 'cash_out').reduce((sum, ew) => sum + ew.amount, 0));
+    const totalEwalletFees = roundCurrency(filteredEwallet.reduce((sum, ew) => sum + (ew.fee || 0), 0));
 
     return {
       totalSales,
@@ -231,9 +229,9 @@ export function useReports(branchId?: string) {
     const filteredEwallet = ewalletTransactions.filter(ew => ew.createdAt >= startOfToday);
     const filteredExpenses = expenses.filter(e => e.timestamp >= startOfToday);
 
-    const totalSales = filteredTransactions.reduce((sum, t) => sum + t.total, 0);
-    const totalVatCollected = filteredTransactions.reduce((sum, t) => sum + (t.vatAmount || 0), 0);
-    const totalVatableSales = filteredTransactions.reduce((sum, t) => sum + (t.vatableSales || 0), 0);
+    const totalSales = roundCurrency(filteredTransactions.reduce((sum, t) => sum + t.total, 0));
+    const totalVatCollected = roundCurrency(filteredTransactions.reduce((sum, t) => sum + (t.vatAmount || 0), 0));
+    const totalVatableSales = roundCurrency(filteredTransactions.reduce((sum, t) => sum + (t.vatableSales || 0), 0));
     
     // OR Range
     const orNumbers = filteredTransactions.map(t => t.orNumber).filter(Boolean) as string[];
@@ -242,16 +240,16 @@ export function useReports(branchId?: string) {
       end: orNumbers.sort()[orNumbers.length - 1]
     } : null;
 
-    const totalCost = filteredTransactions.reduce((sum, t) => {
+    const totalCost = roundCurrency(filteredTransactions.reduce((sum, t) => {
       return sum + t.items.reduce((iSum, item) => iSum + (item.costPrice || 0) * item.quantity, 0);
-    }, 0);
-    const totalProfitBeforeExpenses = totalSales - totalCost;
-    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalProfit = totalProfitBeforeExpenses - totalExpenses;
+    }, 0));
+    const totalProfitBeforeExpenses = roundCurrency(totalSales - totalCost);
+    const totalExpenses = roundCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0));
+    const totalProfit = roundCurrency(totalProfitBeforeExpenses - totalExpenses);
     const totalTickets = filteredTransactions.length;
     
     const ewalletCount = filteredEwallet.length;
-    const totalFees = filteredEwallet.reduce((sum, ew) => sum + (ew.fee || 0), 0);
+    const totalFees = roundCurrency(filteredEwallet.reduce((sum, ew) => sum + (ew.fee || 0), 0));
 
     return {
       totalSales,

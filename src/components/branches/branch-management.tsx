@@ -6,6 +6,8 @@ import { Branch } from '@/lib/db/idb';
 import { X, Plus, MapPin, Edit2, Trash2, Home, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BranchForm } from './branch-form';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 
 interface BranchManagementProps {
   onClose: () => void;
@@ -14,10 +16,13 @@ interface BranchManagementProps {
 export function BranchManagement({ onClose }: BranchManagementProps) {
   const { branches, addBranch, updateBranch, deleteBranch, loading, isAdmin } = useBranches();
   const [editingBranch, setEditingBranch] = useState<Branch | null | 'new'>(null);
+  const [deletingBranch, setDeletingBranch] = useState<Branch | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const toast = useToast();
 
   const handleSave = async (branchData: any) => {
     if (!isAdmin) {
-      alert('Only administrators are authorized to add or edit branches.');
+      toast.error('Unauthorized', 'Only administrators are authorized to add or edit branches.');
       return;
     }
     if (editingBranch === 'new') {
@@ -26,6 +31,20 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
       await updateBranch(branchData);
     }
     setEditingBranch(null);
+  };
+
+  const confirmDeleteBranch = async () => {
+    if (!deletingBranch) return;
+    setIsDeleting(true);
+    try {
+      await deleteBranch(deletingBranch.id);
+      toast.success('Branch Deleted', `${deletingBranch.name} has been removed.`);
+    } catch (err) {
+      toast.error('Delete Failed', err instanceof Error ? err.message : 'Unable to delete branch.');
+    } finally {
+      setIsDeleting(false);
+      setDeletingBranch(null);
+    }
   };
 
   return (
@@ -123,11 +142,7 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete ${branch.name}?`)) {
-                            deleteBranch(branch.id);
-                          }
-                        }}
+                        onClick={() => setDeletingBranch(branch)}
                         className="p-3 bg-white dark:bg-gray-800 text-red-600 dark:text-rose-400 rounded-2xl hover:bg-red-50 dark:hover:bg-rose-900/40 transition-colors shadow-xs cursor-pointer"
                         title="Delete Branch"
                       >
@@ -164,6 +179,17 @@ export function BranchManagement({ onClose }: BranchManagementProps) {
           )}
         </AnimatePresence>
       </motion.div>
+
+      <ConfirmModal
+        isOpen={!!deletingBranch}
+        onClose={() => setDeletingBranch(null)}
+        onConfirm={confirmDeleteBranch}
+        title="Delete Branch"
+        message={`Are you sure you want to delete ${deletingBranch?.name || 'this branch'}?`}
+        confirmText="Delete Branch"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

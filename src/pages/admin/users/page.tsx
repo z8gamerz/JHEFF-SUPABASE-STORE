@@ -11,6 +11,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User as UserIcon, Plus, Shield, UserCircle, Mail, MapPin, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
 import { UserForm } from '@/components/users/user-form';
 import { hashPassword } from '@/lib/security/auth-crypto';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 
 export default function UsersManagementPage() {
   const { user: currentUser } = useAuth();
@@ -19,6 +21,9 @@ export default function UsersManagementPage() {
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingUser, setEditingUser] = useState<Omit<User, 'passwordHash'> | null | 'new'>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -68,13 +73,25 @@ export default function UsersManagementPage() {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleDeleteUser = (id: string) => {
     if (id === currentUser?.id) {
-      alert("You cannot delete your own account.");
+      toast.error('Action Blocked', 'You cannot delete your own account.');
       return;
     }
-    if (confirm('Are you sure you want to delete this user?')) {
-      await deleteUser(id);
+    setDeletingUserId(id);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deletingUserId) return;
+    setIsDeleting(true);
+    try {
+      await deleteUser(deletingUserId);
+      toast.success('User Deleted', 'Staff account has been removed.');
+    } catch (err) {
+      toast.error('Delete Failed', err instanceof Error ? err.message : 'Unable to delete user.');
+    } finally {
+      setIsDeleting(false);
+      setDeletingUserId(null);
     }
   };
 
@@ -250,6 +267,17 @@ export default function UsersManagementPage() {
             />
           )}
         </AnimatePresence>
+
+        <ConfirmModal
+          isOpen={!!deletingUserId}
+          onClose={() => setDeletingUserId(null)}
+          onConfirm={confirmDeleteUser}
+          title="Delete User"
+          message="Are you sure you want to delete this user? This action cannot be undone."
+          confirmText="Delete User"
+          variant="danger"
+          isLoading={isDeleting}
+        />
       </div>
     </AuthGuard>
   );

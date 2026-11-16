@@ -1,138 +1,121 @@
 import { Client, Receiver } from '@upstash/qstash';
+import { applyApiGuards, parseJsonBody, requireEnv } from './_security.js';
 
-async function parseBody(req: any): Promise<any> {
-  if (req.body) {
-    if (typeof req.body === 'string') {
-      try {
-        return JSON.parse(req.body);
-      } catch {
-        return {};
-      }
-    }
-    return req.body;
+function isValidHttpsUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
   }
-
-  if (req.readable && !req.complete) {
-    return new Promise((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => {
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      }, 1000);
-
-      req.on('data', (chunk: any) => { data += chunk; });
-      req.on('end', () => {
-        clearTimeout(timer);
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      });
-      req.on('error', () => {
-        clearTimeout(timer);
-        resolve({});
-      });
-    });
-  }
-
-  return {};
-}
-
-const DEFAULT_BASE_URL = 'https://qstash-us-east-1.upstash.io';
-const DEFAULT_TOKEN = 'eyJVc2VySUQiOiI2ZGMyMGRiYi1kMjgyLTRjYmMtOTk2Zi03MGEwYWI1YTc5M2MiLCJQYXNzd29yZCI6ImE2MDI1YjI0ZWU1MzQ4MDA5ZmQ3NzU5MmYwOTAyNWYzIn0=';
-const DEFAULT_CURRENT_SIGNING_KEY = 'sig_54hfmTdJdvwmSaDHKJVYucmedEpB';
-const DEFAULT_NEXT_SIGNING_KEY = 'sig_5Z6jRweQwkxHT4FpEsXMmBqJ8BSQ';
-
-function cleanVal(val?: string, fallback: string = ''): string {
-  if (!val) return fallback;
-  return String(val).replace(/^["'\s]+|["'\s]+$/g, '').trim() || fallback;
 }
 
 function getQStashConfig() {
-  const baseUrl = cleanVal(process.env.QSTASH_URL || process.env.QSTASH_BASE_URL, DEFAULT_BASE_URL);
-  const token = cleanVal(process.env.QSTASH_TOKEN, DEFAULT_TOKEN);
-  const currentSigningKey = cleanVal(process.env.QSTASH_CURRENT_SIGNING_KEY, DEFAULT_CURRENT_SIGNING_KEY);
-  const nextSigningKey = cleanVal(process.env.QSTASH_NEXT_SIGNING_KEY, DEFAULT_NEXT_SIGNING_KEY);
+  const baseUrl = requireEnv('QSTASH_URL', 'QSTASH_BASE_URL') || 'https://qstash.upstash.io';
+  const token = requireEnv('QSTASH_TOKEN');
+  const currentSigningKey = requireEnv('QSTASH_CURRENT_SIGNING_KEY');
+  const nextSigningKey = requireEnv('QSTASH_NEXT_SIGNING_KEY');
 
-  const client = new Client({ baseUrl, token });
-  const receiver = new Receiver({ currentSigningKey, nextSigningKey });
+  const hasToken = Boolean(token);
+  const hasSigningKeys = Boolean(currentSigningKey && nextSigningKey);
+
+  const client = hasToken ? new Client({ baseUrl, token }) : null;
+  const receiver = hasSigningKeys ? new Receiver({ currentSigningKey, nextSigningKey }) : null;
 
   return {
     client,
     receiver,
-    baseUrl,
-    maskedToken: token ? `${token.slice(0, 10)}••••••••••••••••${token.slice(-6)}` : 'Not Configured',
+    baseUrl: hasToken ? baseUrl : null,
+    maskedToken: token ? `${token.slice(0, 6)}••••••••••••••••${token.slice(-4)}` : 'Not Configured',
     maskedCurrentSigningKey: currentSigningKey ? `${currentSigningKey.slice(0, 6)}••••••••••••••••` : 'Not Configured',
     maskedNextSigningKey: nextSigningKey ? `${nextSigningKey.slice(0, 6)}••••••••••••••••` : 'Not Configured',
-    hasToken: Boolean(token),
-    hasSigningKeys: Boolean(currentSigningKey && nextSigningKey),
+    hasToken,
+    hasSigningKeys,
   };
 }
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Upstash-Signature');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
+  if (
+    !applyApiGuards(req, res, {
+      methods: 'GET, POST, OPTIONS',
+      rateKey: 'qstash',
+      rateLimitMax: 30,
+      maxBodyBytes: 128 * 1024,
+      requireAuth: true,
+    })
+  ) {
+    return;
   }
 
-  const { client, baseUrl, maskedToken, maskedCurrentSigningKey, maskedNextSigningKey, hasToken, hasSigningKeys } = getQStashConfig();
+  const {
+    client,
+    baseUrl,
+    maskedToken,
+    maskedCurrentSigningKey,
+    maskedNextSigningKey,
+    hasToken,
+    hasSigningKeys,
+  } = getQStashConfig();
 
-  // GET: Return connection status with automatically masked secrets (protecting tokens)
   if (req.method === 'GET') {
-    try {
+    return res.status(200).json({
+      success: true,
+      configured: hasToken,
+      connected: hasToken,
+      baseUrl,
+      tokenMasked: maskedToken,
+      signingKeys: {
+        current: maskedCurrentSigningKey,
+        next: maskedNextSigningKey,
+        configured: hasSigningKeys,
+      },
+      status: hasToken ? 'Active & Protected' : 'Not Configured',
+      timestamp: Date.now(),
+    });
+  }
+
+  if (req.method === 'POST') {
+    const parsed = await parseJsonBody(req, 128 * 1024);
+    if (!parsed.ok) {
+      return res.status(parsed.status).json({ success: false, error: parsed.error });
+    }
+    const body = parsed.body;
+    const action = body?.action || 'publish';
+
+    if (action === 'status') {
       return res.status(200).json({
         success: true,
+        configured: hasToken,
         connected: hasToken,
         baseUrl,
         tokenMasked: maskedToken,
-        signingKeys: {
-          current: maskedCurrentSigningKey,
-          next: maskedNextSigningKey,
-          configured: hasSigningKeys,
-        },
-        status: hasToken ? 'Active & Protected' : 'Token Missing',
-        timestamp: Date.now(),
+        status: hasToken ? 'Active & Protected' : 'Not Configured',
       });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message || 'Failed to inspect QStash status' });
     }
-  }
 
-  // POST: Publish message / trigger scheduled task
-  if (req.method === 'POST') {
+    if (!hasToken || !client) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        error: 'QStash is not configured (set QSTASH_TOKEN).',
+      });
+    }
+
+    const targetUrl = typeof body?.url === 'string' ? body.url.trim() : '';
+    if (!targetUrl || !isValidHttpsUrl(targetUrl)) {
+      return res.status(400).json({
+        success: false,
+        error: 'A valid HTTPS target URL is required.',
+      });
+    }
+
     try {
-      const body = await parseBody(req);
-      const action = body?.action || 'publish';
-
-      if (action === 'status') {
-        return res.status(200).json({
-          success: true,
-          connected: hasToken,
-          baseUrl,
-          tokenMasked: maskedToken,
-          status: 'Active & Protected',
-        });
-      }
-
-      // Publish task / webhook
-      const targetUrl = (body?.url || 'https://httpstat.us/200').trim();
       const messageBody = body?.body || body?.data || { event: 'ping', timestamp: Date.now() };
-      const delay = body?.delay; // e.g. "10s", "1m"
-      const cron = body?.cron; // e.g. "* * * * *"
+      const delay = body?.delay;
+      const cron = body?.cron;
       const headers = body?.headers;
 
-      const publishParams: any = {
-        url: targetUrl,
-      };
+      const publishParams: any = { url: targetUrl };
 
       if (typeof messageBody === 'object') {
         publishParams.body = JSON.stringify(messageBody);
@@ -155,10 +138,10 @@ export default async function handler(req: any, res: any) {
         publishedAt: Date.now(),
       });
     } catch (err: any) {
-      console.error('[API QStash Publish Error]:', err);
+      console.error('[API QStash Publish Error]:', err?.message || err);
       return res.status(500).json({
         success: false,
-        error: err?.message || 'Failed to publish to Upstash QStash.',
+        error: 'Failed to publish message to Upstash QStash.',
       });
     }
   }

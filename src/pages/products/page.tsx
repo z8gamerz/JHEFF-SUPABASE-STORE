@@ -14,12 +14,15 @@ import { Plus, Search, Package, ArrowLeft, Upload, Download, ShieldAlert, AlertT
 import Link from 'next/link';
 import { Product } from '@/lib/db/idb';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { useToast } from '@/components/ui/toast';
+import { roundCurrency, roundQuantity } from '@/lib/utils/financial';
 
 export default function ProductsPage() {
   const { currentBranchId, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { isAdmin, isCashier } = useAuth();
   const { products, loading, addProduct, addProducts, updateProduct, deleteProduct, fixAllMinStockTo5, setAllStockQuantity } = useProducts(currentBranchId || undefined);
   const { categories } = useCategories();
+  const toast = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -63,7 +66,7 @@ export default function ProductsPage() {
       setFixSuccessMessage(`Naka-fix na sa 5 ang Min Stock Alert ng lahat (${updatedCount} updated)!`);
       setTimeout(() => setFixSuccessMessage(null), 4000);
     } catch (err: any) {
-      alert('Failed to update: ' + (err?.message || 'Unknown error'));
+      toast.error('Update Failed', err?.message || 'Unknown error');
     } finally {
       setIsFixingAll(false);
     }
@@ -71,7 +74,7 @@ export default function ProductsPage() {
 
   const requestScaleConfirmation = (qty: number) => {
     if (products.length === 0) {
-      alert('Walang products sa inventory para i-scale.');
+      toast.warning('No Products', 'Walang products sa inventory para i-scale.');
       return;
     }
     setPendingScaleQty(qty);
@@ -88,7 +91,7 @@ export default function ProductsPage() {
       setIsWarningConfirmOpen(false);
       setTimeout(() => setScaleSuccessMessage(null), 5000);
     } catch (err: any) {
-      alert('Failed to scale stocks: ' + (err?.message || 'Unknown error'));
+      toast.error('Scale Stocks Failed', err?.message || 'Unknown error');
     } finally {
       setIsScalingStocks(false);
     }
@@ -100,16 +103,23 @@ export default function ProductsPage() {
   const inventoryStats = useMemo(() => {
     const totalItems = products.length;
     // Total Inventory Value at Retail Price (Benta Value)
-    const totalInventoryValue = products.reduce((sum, p) => sum + ((Number(p.price) || 0) * (Number(p.stock) || 0)), 0);
+    const totalInventoryValue = roundCurrency(
+      products.reduce((sum, p) => sum + ((Number(p.price) || 0) * (Number(p.stock) || 0)), 0)
+    );
     // Total Inventory Value at Cost (Puhunan Value)
-    const totalCostValue = products.reduce((sum, p) => sum + ((Number(p.cost) || 0) * (Number(p.stock) || 0)), 0);
+    const totalCostValue = roundCurrency(
+      products.reduce((sum, p) => sum + ((Number(p.cost) || 0) * (Number(p.stock) || 0)), 0)
+    );
     // Total physical units on hand
-    const totalStockQty = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+    const totalStockQty = roundQuantity(
+      products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0),
+      true
+    );
     return {
       totalItems,
       totalInventoryValue,
       totalCostValue,
-      totalStockQty: Math.round(totalStockQty * 1000) / 1000,
+      totalStockQty,
       totalCategories: categories.length,
     };
   }, [products, categories]);

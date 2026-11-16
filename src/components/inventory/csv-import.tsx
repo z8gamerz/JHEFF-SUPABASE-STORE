@@ -5,6 +5,7 @@ import Papa from 'papaparse';
 import { Upload, FileText, Check, AlertCircle, X, Loader2, ArrowRight, Settings2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product } from '@/lib/db/idb';
+import { useToast } from '@/components/ui/toast';
 
 interface CsvImportProps {
   onImport: (products: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'branchId'>[]) => Promise<void>;
@@ -46,12 +47,15 @@ export function CsvImport({ onImport, onClose }: CsvImportProps) {
   });
   const [parsedData, setParsedData] = useState<ValidatedProduct[]>([]);
   const [errors, setErrors] = useState<ImportError[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportError(null);
 
     Papa.parse(file, {
       header: true,
@@ -77,7 +81,8 @@ export function CsvImport({ onImport, onClose }: CsvImportProps) {
       },
       error: (error) => {
         console.error('CSV Parsing Error:', error);
-        alert('Failed to parse CSV file.');
+        setImportError('Failed to parse CSV file. Please verify the file encoding and format.');
+        toast.error('CSV Parse Error', 'Failed to parse CSV file.');
       }
     });
   };
@@ -122,13 +127,16 @@ export function CsvImport({ onImport, onClose }: CsvImportProps) {
   const handleConfirmImport = async () => {
     if (parsedData.length === 0) return;
     
+    setImportError(null);
     setIsImporting(true);
     try {
       await onImport(parsedData);
+      toast.success('Import Complete', `${parsedData.length} product(s) imported.`);
       onClose();
     } catch (error) {
       console.error('Import failed:', error);
-      alert('Failed to import products.');
+      setImportError('Failed to import products. Please check your data and try again.');
+      toast.error('Import Failed', 'Failed to import products.');
     } finally {
       setIsImporting(false);
     }
@@ -165,6 +173,25 @@ export function CsvImport({ onImport, onClose }: CsvImportProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-8">
+          {importError && (
+            <div
+              role="alert"
+              className="mb-6 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 flex items-center justify-between gap-3 text-rose-800 dark:text-rose-200 text-xs font-bold"
+            >
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>{importError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImportError(null)}
+                aria-label="Dismiss error"
+                className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/50 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {step === 'upload' && (
               <motion.div

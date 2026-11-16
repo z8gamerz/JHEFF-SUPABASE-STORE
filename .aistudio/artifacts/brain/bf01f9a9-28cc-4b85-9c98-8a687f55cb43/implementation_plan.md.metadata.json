@@ -1,6 +1,0 @@
-{
-  "summary": "Comprehensive implementation plan for the Weekly Email Report Generator in the Reports Section with customizable report selection (Daily Summary, Sales Journal, Credit & Utang Report), Monday-to-Sunday weekly date filtering, Gmail App Password configuration in Settings, and server-side SMTP email dispatch with formatted HTML and CSV attachments.",
-  "updatedAt": "2026-11-05T03:44:52.289472819Z",
-  "requestFeedback": true,
-  "userFacing": true
-}

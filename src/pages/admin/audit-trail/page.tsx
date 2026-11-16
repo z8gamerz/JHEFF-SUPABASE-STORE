@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { format } from 'date-fns';
+import { useToast } from '@/components/ui/toast';
 
 export default function AuditTrailPage() {
   const { 
@@ -40,6 +41,7 @@ export default function AuditTrailPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAction, setFilterAction] = useState<string>('all');
   const [purgeSuccessMsg, setPurgeSuccessMsg] = useState<string | null>(null);
+  const toast = useToast();
 
   const cutoffMs = useMemo(() => Date.now() - (ttlDays * 24 * 60 * 60 * 1000), [ttlDays]);
   const expiredLogsCount = useMemo(() => logs.filter(l => (l.timestamp || 0) < cutoffMs).length, [logs, cutoffMs]);
@@ -54,7 +56,7 @@ export default function AuditTrailPage() {
       }
       setTimeout(() => setPurgeSuccessMsg(null), 5000);
     } catch (err: any) {
-      alert('Error cleaning expired logs: ' + (err?.message || 'Unknown error'));
+      toast.error('Log Cleanup Failed', err?.message || 'Error cleaning expired logs.');
     }
   };
 

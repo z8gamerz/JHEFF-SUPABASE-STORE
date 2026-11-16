@@ -2,33 +2,59 @@
 
 import { dbUtil, STORES, SyncAction, StoreName } from './idb';
 import { realtimeSync } from './realtime-sync';
+import { getConfiguredRtdbUrl, getFirebaseAuthToken } from './firebase-config';
 
 /**
  * [SaaS ARCHITECT NOTE]
  * High-performance, low-latency sync engine for multi-device POS operations.
- * 
+ *
  * 1. Zero-Delay Auto-Push: Changes push directly to Firebase Realtime Database in parallel.
- * 2. Guaranteed Delivery: If offline or delayed, operations queue in IndexedDB 'sync_queue' for auto-retry.
+ * 2. Guaranteed Delivery: If offline or delayed, operations queue in IndexedDB 'sync_queue' for auto-retry
+ *    with bounded exponential backoff and MAX_RETRIES cap.
  * 3. Realtime Auto-Push Stream: Firebase SSE push stream delivers remote updates instantly to other devices.
- * 4. Conflict Resolution: Uses 'updatedAt' (Last Write Wins).
+ * 4. Conflict Resolution: Uses 'updatedAt' (Last Write Wins) with 'isDeleted' tombstone preservation.
  */
 
+export const MAX_RETRIES = 5;
+export const MAX_BACKOFF_MS = 300_000;
+
+export function computeNextRetryDelayMs(retryCount: number): number {
+  const safeCount = Math.max(0, Math.floor(retryCount));
+  return Math.min(MAX_BACKOFF_MS, 1000 * Math.pow(2, safeCount));
+}
+
+export function isActionDueForSync(action: SyncAction, now: number = Date.now()): boolean {
+  if (action.status !== 'pending') return false;
+  return !action.nextRetryAt || action.nextRetryAt <= now;
+}
+
+export function computeFailedActionUpdate(
+  action: SyncAction,
+  errorMessage: string,
+  now: number = Date.now()
+): SyncAction {
+  const nextRetryCount = (action.retryCount || 0) + 1;
+  const reachedMax = nextRetryCount >= MAX_RETRIES;
+  return {
+    ...action,
+    status: reachedMax ? 'failed' : 'pending',
+    retryCount: nextRetryCount,
+    nextRetryAt: reachedMax ? undefined : now + computeNextRetryDelayMs(nextRetryCount),
+    lastError: errorMessage,
+  };
+}
+
 function getRtdbUrl(): string {
-  return ((import.meta as any).env?.VITE_FIREBASE_RTDB_URL || 
-    'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app/').replace(/\/$/, '');
+  return getConfiguredRtdbUrl();
 }
 
 export function getAuthToken(): string {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem('pos_firebase_auth_token') || 
-         localStorage.getItem('firebase_database_secret') ||
-         sessionStorage.getItem('pos_firebase_auth_token') ||
-         (import.meta as any).env?.VITE_FIREBASE_AUTH_TOKEN || '';
+  return getFirebaseAuthToken();
 }
 
 export function getAuthQuery(): string {
   const token = getAuthToken();
-  return token ? `?auth=${encodeURIComponent(token.trim())}` : '';
+  return token ? `?auth=${encodeURIComponent(token)}` : '';
 }
 
 /**
@@ -46,6 +72,9 @@ export async function pushDirect(
   }
 
   const BASE_URL = getRtdbUrl();
+  if (!BASE_URL) {
+    return false;
+  }
 
   try {
     const url = `${BASE_URL}/${store}/${key}.json${getAuthQuery()}`;
@@ -61,7 +90,6 @@ export async function pushDirect(
     clearTimeout(timeoutId);
 
     if (res.ok) {
-      console.log(`[CloudSync] Instant auto-push success for ${store}/${key}`);
       realtimeSync.broadcastLocalChange(store, key, payload);
       return true;
     }
@@ -79,25 +107,25 @@ export async function queueAction(
   type: 'CREATE' | 'UPDATE' | 'DELETE',
   payload: any
 ): Promise<void> {
+  const now = Date.now();
   const action: SyncAction = {
     store,
     type,
     payload: {
       ...payload,
-      updatedAt: Date.now(),
-      isDeleted: type === 'DELETE'
+      updatedAt: payload?.updatedAt || now,
+      isDeleted: type === 'DELETE' ? true : Boolean(payload?.isDeleted),
     },
-    timestamp: Date.now(),
+    timestamp: now,
     status: 'pending',
     retryCount: 0,
   };
 
   try {
     await dbUtil.addItem(STORES.SYNC_QUEUE, action);
-    console.log(`[CloudSync] Queued ${type} for ${store}`);
-    
-    // Trigger background sync if online
-    if (typeof window !== 'undefined' && window.navigator.onLine) {
+
+    // Trigger background sync if online and configured
+    if (typeof window !== 'undefined' && window.navigator.onLine && getRtdbUrl()) {
       processQueue();
     }
   } catch (error) {
@@ -111,30 +139,32 @@ export async function queueAction(
 export async function markAsSynced(actionId: number): Promise<void> {
   try {
     await dbUtil.deleteItem(STORES.SYNC_QUEUE, actionId);
-    console.log(`[CloudSync] Action ${actionId} synced and removed from queue.`);
   } catch (error) {
     console.error(`[CloudSync] Failed to mark action ${actionId} as synced:`, error);
   }
 }
 
 /**
- * Processes the pending synchronization queue in batches.
+ * Processes due pending synchronization actions in batches with bounded exponential backoff.
  */
 export async function processQueue(): Promise<void> {
   if (typeof window !== 'undefined' && !window.navigator.onLine) {
     return;
   }
 
+  const BASE_URL = getRtdbUrl();
+  if (!BASE_URL) {
+    return;
+  }
+
+  const now = Date.now();
   const queue = await dbUtil.getItems<SyncAction>(STORES.SYNC_QUEUE);
-  const pendingActions = queue.filter(a => a.status === 'pending' || a.status === 'failed');
+  const dueActions = queue.filter((a) => isActionDueForSync(a, now));
 
-  if (pendingActions.length === 0) return;
-
-  console.log(`[CloudSync] Syncing ${pendingActions.length} changes to cloud...`);
+  if (dueActions.length === 0) return;
 
   const BATCH_SIZE = 50;
-  const batch = pendingActions.slice(0, BATCH_SIZE);
-  const BASE_URL = getRtdbUrl();
+  const batch = dueActions.slice(0, BATCH_SIZE);
   const authQuery = getAuthQuery();
 
   try {
@@ -147,16 +177,13 @@ export async function processQueue(): Promise<void> {
 
     for (const action of batch) {
       const { store, payload, type } = action;
-      const key = payload.id || payload.key;
+      const key = payload?.id || payload?.key;
       if (!key) {
-        console.warn('[CloudSync] Missing key for action payload, removing from queue:', payload);
         if (action.id) await markAsSynced(action.id);
         continue;
       }
 
-      // If an audit log has failed repeatedly due to Firebase permission rules, prune it from queue
       if ((action.retryCount || 0) >= 3 && store === STORES.AUDIT_LOGS) {
-        console.warn(`[CloudSync] Pruning un-syncable audit log ${key} from local queue.`);
         if (action.id) await markAsSynced(action.id);
         continue;
       }
@@ -182,17 +209,19 @@ export async function processQueue(): Promise<void> {
               localStorage.setItem('firebase_sync_error', 'Unauthorized');
             }
           }
-          action.status = 'failed';
-          action.retryCount = (action.retryCount || 0) + 1;
-          await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
+          const updated = computeFailedActionUpdate(action, `HTTP ${response.status}`, Date.now());
+          await dbUtil.updateItem(STORES.SYNC_QUEUE, updated);
         }
-      } catch (reqError) {
-        action.status = 'failed';
-        action.retryCount = (action.retryCount || 0) + 1;
-        await dbUtil.updateItem(STORES.SYNC_QUEUE, action);
+      } catch (reqError: any) {
+        const updated = computeFailedActionUpdate(
+          action,
+          reqError?.message || 'Network request failed',
+          Date.now()
+        );
+        await dbUtil.updateItem(STORES.SYNC_QUEUE, updated);
       }
     }
-    
+
     if (hasSuccess) {
       const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
       if (storeInfo.length > 0) {
@@ -202,8 +231,11 @@ export async function processQueue(): Promise<void> {
       }
     }
 
-    const remainingPending = (await dbUtil.getItems<SyncAction>(STORES.SYNC_QUEUE)).filter(a => a.status === 'pending');
-    if (remainingPending.length > 0) {
+    const afterNow = Date.now();
+    const remainingDue = (await dbUtil.getItems<SyncAction>(STORES.SYNC_QUEUE)).filter((a) =>
+      isActionDueForSync(a, afterNow)
+    );
+    if (remainingDue.length > 0) {
       processQueue();
     }
   } catch (error) {
@@ -220,6 +252,9 @@ export async function pullStore(store: StoreName): Promise<any[]> {
   }
 
   const BASE_URL = getRtdbUrl();
+  if (!BASE_URL) {
+    return dbUtil.getItems<any>(store);
+  }
 
   try {
     const url = `${BASE_URL}/${store}.json${getAuthQuery()}`;
@@ -245,7 +280,7 @@ export async function pullStore(store: StoreName): Promise<any[]> {
     }
     if (!data) return [];
 
-    const cloudItems: any[] = Array.isArray(data) 
+    const cloudItems: any[] = Array.isArray(data)
       ? data.filter(Boolean)
       : Object.values(data);
 
@@ -281,6 +316,10 @@ export async function pullSync(): Promise<void> {
     return;
   }
 
+  if (!getRtdbUrl()) {
+    return;
+  }
+
   const storesToSync = [
     STORES.STORE_INFO,
     STORES.BRANCHES,
@@ -298,16 +337,12 @@ export async function pullSync(): Promise<void> {
     STORES.EXPENSES
   ];
 
-  console.log('[CloudSync] Starting parallel pull sync from Firebase RTDB...');
-  
-  // Parallel fetch for speed across all tables
   await Promise.all(
     storesToSync.map(store => pullStore(store).catch(err => {
       console.warn(`[CloudSync] Error syncing store ${store}:`, err);
     }))
   );
 
-  // Update store-wide sync timestamp
   try {
     const storeInfo = await dbUtil.getItems<any>(STORES.STORE_INFO);
     if (storeInfo.length > 0) {
@@ -318,8 +353,6 @@ export async function pullSync(): Promise<void> {
   } catch (error) {
     console.error('[CloudSync] Failed to update sync timestamp:', error);
   }
-
-  console.log('[CloudSync] Pull sync completed.');
 }
 
 /**
@@ -336,7 +369,6 @@ export const syncDb = {
     const result = await dbUtil.addItem(store, payload);
     const key = (payload as any).id || (payload as any).key;
 
-    // Instant auto-push to cloud
     if (key) {
       const pushed = await pushDirect(store, key, payload, false);
       if (!pushed) {
@@ -355,7 +387,6 @@ export const syncDb = {
     const result = await dbUtil.updateItem(store, payload);
     const key = (payload as any).id || (payload as any).key;
 
-    // Instant auto-push to cloud
     if (key) {
       const pushed = await pushDirect(store, key, payload, false);
       if (!pushed) {
@@ -370,11 +401,11 @@ export const syncDb = {
     if (item) {
       const key = (item as any).id || (item as any).key || id;
       await dbUtil.deleteItem(store, id);
-      const deletePayload = { 
-        ...item, 
-        id: key, 
-        isDeleted: true, 
-        updatedAt: Date.now() 
+      const deletePayload = {
+        ...item,
+        id: key,
+        isDeleted: true,
+        updatedAt: Date.now()
       };
       const pushed = await pushDirect(store, key, deletePayload, true);
       if (!pushed) {
@@ -402,28 +433,22 @@ export async function clearDatabaseAll(): Promise<void> {
     STORES.EXPENSES
   ];
 
-  console.log('[CloudSync] Clearing all local IndexedDB stores...');
-
   for (const store of storesToClear) {
     try {
       await dbUtil.clearStore(store);
-      console.log(`[CloudSync] Cleared local store: ${store}`);
     } catch (e) {
       console.error(`[CloudSync] Failed to clear local store ${store}:`, e);
     }
   }
 
   const BASE_URL = getRtdbUrl();
-  
-  if (typeof window !== 'undefined' && window.navigator.onLine) {
-    console.log('[CloudSync] Deleting remote stores from Firebase...');
+  const authQuery = getAuthQuery();
+
+  if (BASE_URL && typeof window !== 'undefined' && window.navigator.onLine) {
     for (const store of storesToClear) {
       try {
-        const url = `${BASE_URL}/${store}.json`;
-        const response = await fetch(url, { method: 'DELETE' });
-        if (response.ok) {
-          console.log(`[CloudSync] Successfully deleted store ${store} on Firebase.`);
-        }
+        const url = `${BASE_URL}/${store}.json${authQuery}`;
+        await fetch(url, { method: 'DELETE' });
       } catch (e) {
         console.error(`[CloudSync] Error deleting store ${store} on Firebase:`, e);
       }
@@ -434,21 +459,18 @@ export async function clearDatabaseAll(): Promise<void> {
     await dbUtil.clearStore(STORES.BRANCHES);
     localStorage.removeItem('sarisari_current_branch_id');
 
-    if (typeof window !== 'undefined' && window.navigator.onLine) {
-      await fetch(`${BASE_URL}/${STORES.BRANCHES}.json`, { method: 'DELETE' });
+    if (BASE_URL && typeof window !== 'undefined' && window.navigator.onLine) {
+      await fetch(`${BASE_URL}/${STORES.BRANCHES}.json${authQuery}`, { method: 'DELETE' });
     }
   } catch (e) {
     console.error('Failed to clear branches:', e);
   }
-
-  console.log('[CloudSync] Database wipe completed.');
 }
 
 // Start realtime sync stream on startup if in browser
 if (typeof window !== 'undefined') {
   realtimeSync.start();
   window.addEventListener('online', () => {
-    console.log('[SyncQueue] Back online! Triggering sync...');
     processQueue();
     realtimeSync.start();
   });

@@ -29,6 +29,8 @@ import {
   Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 
 interface CreditHistoryProps {
   customer: Customer;
@@ -46,14 +48,29 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCreditIds, setExpandedCreditIds] = useState<Record<string, boolean>>({});
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const toast = useToast();
 
-  const handleDeleteEntry = async (entryId: string) => {
-    if (confirm('Are you sure you want to delete this credit/balance entry? This action cannot be undone.')) {
+  const handleDeleteEntry = (entryId: string) => {
+    setDeletingEntryId(entryId);
+  };
+
+  const confirmDeleteEntry = async () => {
+    if (!deletingEntryId) return;
+    setIsDeleting(true);
+    try {
       if (onDeleteEntry) {
-        await onDeleteEntry(entryId);
+        await onDeleteEntry(deletingEntryId);
       }
       const data = await getHistory(customer.id);
       setHistory(data);
+      toast.success('Entry Deleted', 'Credit ledger entry has been removed.');
+    } catch (err) {
+      toast.error('Delete Failed', err instanceof Error ? err.message : 'Unable to delete entry.');
+    } finally {
+      setIsDeleting(false);
+      setDeletingEntryId(null);
     }
   };
 
@@ -943,6 +960,17 @@ export function CreditHistory({ customer, getHistory, onClose, onDeleteEntry }: 
           </div>
         )}
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={!!deletingEntryId}
+        onClose={() => setDeletingEntryId(null)}
+        onConfirm={confirmDeleteEntry}
+        title="Delete Credit Entry"
+        message="Are you sure you want to delete this credit/balance entry? This action cannot be undone."
+        confirmText="Delete Entry"
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

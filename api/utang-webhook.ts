@@ -1,111 +1,77 @@
 import { Redis } from '@upstash/redis';
+import { applyApiGuards, parseJsonBody, requireEnv } from './_security.js';
 
-function cleanEnv(val?: string, fallback: string = ''): string {
-  if (!val) return fallback;
-  return String(val).replace(/^["'\s]+|["'\s]+$/g, '').trim() || fallback;
-}
-
-// Upstash Redis Configuration with environment fallback and quote stripping
-const REDIS_URL = cleanEnv(
-  process.env.UPSTASH_REDIS_REST_URL || process.env.VITE_UPSTASH_REDIS_REST_URL,
-  'https://proper-gull-192572.upstash.io'
-);
-
-const REDIS_TOKEN = cleanEnv(
-  process.env.UPSTASH_REDIS_REST_TOKEN || process.env.VITE_UPSTASH_REDIS_REST_TOKEN,
-  'gQAAAAAAAvA8AAIgcDIxMjExNWU2ZTczZDg0ZmIxOWZjZTJkNWM0MzQyNTM2Mg'
-);
-
-function getRedisClient(): Redis {
-  return new Redis({
-    url: REDIS_URL,
-    token: REDIS_TOKEN,
-  });
-}
-
-async function parseBody(req: any): Promise<any> {
-  if (req.body) {
-    if (typeof req.body === 'string') {
-      try {
-        return JSON.parse(req.body);
-      } catch {
-        return {};
-      }
-    }
-    return req.body;
+function getRedisConfig(): { url: string; token: string; client: Redis | null } {
+  const url = requireEnv('UPSTASH_REDIS_REST_URL');
+  const token = requireEnv('UPSTASH_REDIS_REST_TOKEN');
+  if (!url || !token) {
+    return { url: '', token: '', client: null };
   }
-
-  if (req.readable && !req.complete) {
-    return new Promise((resolve) => {
-      let data = '';
-      const timer = setTimeout(() => {
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      }, 2000);
-
-      req.on('data', (chunk: any) => { data += chunk; });
-      req.on('end', () => {
-        clearTimeout(timer);
-        try {
-          resolve(data ? JSON.parse(data) : {});
-        } catch {
-          resolve({});
-        }
-      });
-      req.on('error', () => {
-        clearTimeout(timer);
-        resolve({});
-      });
-    });
-  }
-
-  return {};
+  return {
+    url,
+    token,
+    client: new Redis({ url, token }),
+  };
 }
 
 export default async function handler(req: any, res: any) {
-  // CORS & Preflight headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).json({ success: true });
+  if (
+    !applyApiGuards(req, res, {
+      methods: 'GET, POST, OPTIONS',
+      rateKey: 'utang-webhook',
+      rateLimitMax: 60,
+      maxBodyBytes: 1024 * 1024,
+      requireAuth: true,
+    })
+  ) {
+    return;
   }
 
-  const redis = getRedisClient();
+  const { url: redisUrl, client: redis } = getRedisConfig();
 
-  // 1. GET Requests: Pull out tabulated Utang records or check health
   if (req.method === 'GET') {
-    const url = new URL(req.url, 'http://localhost');
-    const action = url.searchParams.get('action') || 'pull_all';
-    const customerId = url.searchParams.get('customerId');
+    const parsedUrl = new URL(req.url || '/api/utang-webhook', 'http://localhost');
+    const action = parsedUrl.searchParams.get('action') || 'pull_all';
+    const customerId = parsedUrl.searchParams.get('customerId');
+
+    if (!redis || !redisUrl) {
+      if (action === 'health' || action === 'ping') {
+        return res.status(200).json({
+          success: false,
+          configured: false,
+          status: 'not_configured',
+          error: 'Upstash Redis is not configured.',
+          timestamp: Date.now(),
+        });
+      }
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        error: 'Upstash Redis is not configured (set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN).',
+      });
+    }
 
     try {
-      // Health check & Connection Ping
       if (action === 'health' || action === 'ping') {
         const start = Date.now();
         const pingRes = await redis.ping();
         const latency = Date.now() - start;
         return res.status(200).json({
           success: true,
+          configured: true,
           status: 'connected',
           ping: pingRes,
           latencyMs: latency,
-          redisHost: new URL(REDIS_URL).hostname,
-          timestamp: Date.now()
+          redisHost: new URL(redisUrl).hostname,
+          timestamp: Date.now(),
         });
       }
 
-      // Pull customer-specific tabulated ledger
       if (action === 'pull_customer' && customerId) {
         const entryIds = await redis.zrange(`utang:customer:${customerId}:entries`, 0, -1, { rev: true });
         let entries: any[] = [];
         if (entryIds && entryIds.length > 0) {
-          const keys = entryIds.map(id => `utang:entry:${id}`);
+          const keys = entryIds.map((id) => `utang:entry:${id}`);
           const rawEntries = await redis.mget(...keys);
           entries = rawEntries.filter(Boolean);
         }
@@ -121,27 +87,21 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      // Default: Pull all tabulated Utang records from Redis
-      // Fetch entry IDs sorted by timestamp (newest first)
       const entryIds = await redis.zrange('utang:entries:by_time', 0, 1000, { rev: true });
-      let entries: any[] = [];
+      const entries: any[] = [];
 
       if (entryIds && entryIds.length > 0) {
-        const keys = entryIds.map(id => `utang:entry:${id}`);
-        // Fetch in batches of 50 to avoid request size limits
+        const keys = entryIds.map((id) => `utang:entry:${id}`);
         const chunkSize = 50;
         for (let i = 0; i < keys.length; i += chunkSize) {
           const chunk = keys.slice(i, i + chunkSize);
           const chunkResults = await redis.mget(...chunk);
           for (const item of chunkResults) {
-            if (item) {
-              entries.push(item);
-            }
+            if (item) entries.push(item);
           }
         }
       }
 
-      // Calculate Tabulated Summary Metrics
       let totalUtang = 0;
       let totalPayments = 0;
       let activeCount = 0;
@@ -162,7 +122,7 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         success: true,
         source: 'Upstash Redis',
-        redisHost: new URL(REDIS_URL).hostname,
+        redisHost: new URL(redisUrl).hostname,
         summary: {
           totalEntries: entries.length,
           activeRecords: activeCount,
@@ -171,24 +131,35 @@ export default async function handler(req: any, res: any) {
           netReceivables,
         },
         entries,
-        pulledAt: Date.now()
+        pulledAt: Date.now(),
       });
     } catch (err: any) {
-      console.error('[Utang Webhook GET Error]:', err);
+      console.error('[Utang Webhook GET Error]:', err?.message || err);
       return res.status(500).json({
         success: false,
-        error: err?.message || 'Failed to pull Utang records from Upstash Redis.',
+        error: 'Failed to pull Utang records from Upstash Redis.',
       });
     }
   }
 
-  // 2. POST Requests: Push data directly to Upstash Redis via Webhook
   if (req.method === 'POST') {
+    if (!redis || !redisUrl) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        error: 'Upstash Redis is not configured (set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN).',
+      });
+    }
+
+    const parsed = await parseJsonBody(req, 1024 * 1024);
+    if (!parsed.ok) {
+      return res.status(parsed.status).json({ success: false, error: parsed.error });
+    }
+
     try {
-      const body = await parseBody(req);
+      const body = parsed.body;
       const { action = 'push_record', entry, customer, entries, customers, note } = body;
 
-      // Single Record Push
       if (action === 'push_record') {
         if (!entry || !entry.id) {
           return res.status(400).json({ success: false, error: 'Missing entry or entry.id in payload.' });
@@ -201,38 +172,31 @@ export default async function handler(req: any, res: any) {
           timestamp: entry.timestamp || now,
           updatedAt: now,
           isDeleted: entry.isDeleted ?? false,
-          syncedToRedisAt: now
+          syncedToRedisAt: now,
         };
 
         const pipe = redis.pipeline();
-
-        // 1. Store full entry document
         pipe.set(`utang:entry:${entry.id}`, enrichedEntry);
-
-        // 2. Index into global timeline sorted set (score = timestamp)
         pipe.zadd('utang:entries:by_time', {
           score: enrichedEntry.timestamp,
-          member: entry.id
+          member: entry.id,
         });
 
-        // 3. Index into customer-specific timeline
         if (entry.customerId) {
           pipe.zadd(`utang:customer:${entry.customerId}:entries`, {
             score: enrichedEntry.timestamp,
-            member: entry.id
+            member: entry.id,
           });
         }
 
-        // 4. Update customer profile in Redis if provided
         if (customer && customer.id) {
           pipe.set(`utang:customer:${customer.id}:profile`, {
             ...customer,
             updatedAt: now,
-            lastSyncedAt: now
+            lastSyncedAt: now,
           });
         }
 
-        // 5. Append to Webhook audit log
         pipe.lpush('utang:webhook:logs', {
           event: 'PUSH_RECORD',
           entryId: entry.id,
@@ -240,9 +204,9 @@ export default async function handler(req: any, res: any) {
           type: entry.type,
           amount: entry.amount,
           description: entry.description,
-          timestamp: now
+          timestamp: now,
         });
-        pipe.ltrim('utang:webhook:logs', 0, 99); // Keep latest 100 logs
+        pipe.ltrim('utang:webhook:logs', 0, 99);
 
         await pipe.exec();
 
@@ -250,11 +214,10 @@ export default async function handler(req: any, res: any) {
           success: true,
           message: 'Utang record successfully pushed to Upstash Redis DB via Webhook.',
           entryId: entry.id,
-          syncedAt: now
+          syncedAt: now,
         });
       }
 
-      // Batch Push: Bulk sync all customer credit entries into Redis
       if (action === 'batch_push') {
         const entriesList = Array.isArray(entries) ? entries : [];
         const customersList = Array.isArray(customers) ? customers : [];
@@ -266,7 +229,6 @@ export default async function handler(req: any, res: any) {
         const now = Date.now();
         const pipe = redis.pipeline();
 
-        // Push all credit entries
         for (const item of entriesList) {
           if (!item.id) continue;
           const enriched = {
@@ -275,39 +237,37 @@ export default async function handler(req: any, res: any) {
             timestamp: item.timestamp || now,
             updatedAt: now,
             isDeleted: item.isDeleted ?? false,
-            syncedToRedisAt: now
+            syncedToRedisAt: now,
           };
 
           pipe.set(`utang:entry:${item.id}`, enriched);
           pipe.zadd('utang:entries:by_time', {
             score: enriched.timestamp,
-            member: item.id
+            member: item.id,
           });
 
           if (item.customerId) {
             pipe.zadd(`utang:customer:${item.customerId}:entries`, {
               score: enriched.timestamp,
-              member: item.id
+              member: item.id,
             });
           }
         }
 
-        // Push all customer profiles
         for (const cust of customersList) {
           if (!cust.id) continue;
           pipe.set(`utang:customer:${cust.id}:profile`, {
             ...cust,
-            lastSyncedAt: now
+            lastSyncedAt: now,
           });
         }
 
-        // Audit Log entry
         pipe.lpush('utang:webhook:logs', {
           event: 'BATCH_PUSH',
           totalEntries: entriesList.length,
           totalCustomers: customersList.length,
           timestamp: now,
-          note: note || 'Full batch sync to Upstash Redis'
+          note: note || 'Full batch sync to Upstash Redis',
         });
         pipe.ltrim('utang:webhook:logs', 0, 99);
 
@@ -318,11 +278,10 @@ export default async function handler(req: any, res: any) {
           message: `Batch push completed: ${entriesList.length} Utang records and ${customersList.length} customers stored in Upstash Redis.`,
           totalEntries: entriesList.length,
           totalCustomers: customersList.length,
-          syncedAt: now
+          syncedAt: now,
         });
       }
 
-      // Delete Record
       if (action === 'delete_record') {
         const { entryId, customerId } = body;
         if (!entryId) {
@@ -330,13 +289,12 @@ export default async function handler(req: any, res: any) {
         }
 
         const pipe = redis.pipeline();
-        // Mark as isDeleted
         const existing: any = await redis.get(`utang:entry:${entryId}`);
         if (existing) {
           pipe.set(`utang:entry:${entryId}`, {
             ...existing,
             isDeleted: true,
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
           });
         }
 
@@ -350,16 +308,16 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({
           success: true,
           message: `Record ${entryId} deleted from active Redis index.`,
-          entryId
+          entryId,
         });
       }
 
       return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
     } catch (err: any) {
-      console.error('[Utang Webhook POST Error]:', err);
+      console.error('[Utang Webhook POST Error]:', err?.message || err);
       return res.status(500).json({
         success: false,
-        error: err?.message || 'Failed to push Utang data to Upstash Redis.',
+        error: 'Failed to push Utang data to Upstash Redis.',
       });
     }
   }

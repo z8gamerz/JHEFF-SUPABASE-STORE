@@ -1,7 +1,10 @@
 'use client';
 
+import { apiFetch } from '@/lib/api-client';
+
 export interface QStashStatus {
   connected: boolean;
+  configured: boolean;
   baseUrl: string;
   tokenMasked: string;
   signingKeys?: {
@@ -32,35 +35,39 @@ export interface QStashPublishResult {
 
 class QStashService {
   /**
-   * Retrieves connection status with automatically masked token (protecting secrets).
+   * Retrieves connection status with automatically masked token from server API.
    */
   async getStatus(): Promise<QStashStatus> {
     try {
-      const res = await fetch('/api/qstash', {
-        headers: { 'Cache-Control': 'no-cache' }
+      const res = await apiFetch('/api/qstash', {
+        headers: { 'Cache-Control': 'no-cache' },
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
+        const isConfigured = Boolean(data.configured);
         return {
-          connected: data.connected ?? true,
-          baseUrl: data.baseUrl || 'https://qstash-us-east-1.upstash.io',
-          tokenMasked: data.tokenMasked || 'eyJVc2Vy••••••••••••',
+          connected: isConfigured && Boolean(data.connected ?? true),
+          configured: isConfigured,
+          baseUrl: data.baseUrl || '',
+          tokenMasked: data.tokenMasked || (isConfigured ? 'Configured' : 'Not Configured'),
           signingKeys: data.signingKeys,
-          status: data.status || 'Active & Connected',
+          status: data.status || (isConfigured ? 'Active & Connected' : 'Not Configured'),
           timestamp: data.timestamp || Date.now(),
         };
       }
       return {
         connected: false,
-        baseUrl: 'https://qstash-us-east-1.upstash.io',
-        tokenMasked: '••••••••••••••••',
+        configured: false,
+        baseUrl: '',
+        tokenMasked: 'Not Configured',
         status: data?.error || 'Unavailable',
       };
     } catch (err: any) {
       return {
         connected: false,
-        baseUrl: 'https://qstash-us-east-1.upstash.io',
-        tokenMasked: '••••••••••••••••',
+        configured: false,
+        baseUrl: '',
+        tokenMasked: 'Not Configured',
         status: err?.message || 'Connection failed',
       };
     }
@@ -72,13 +79,12 @@ class QStashService {
    */
   async publish(params: QStashPublishParams = {}): Promise<QStashPublishResult> {
     try {
-      const res = await fetch('/api/qstash', {
+      const res = await apiFetch('/api/qstash', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         return {
           success: true,

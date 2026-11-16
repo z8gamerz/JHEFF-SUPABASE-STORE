@@ -31,6 +31,15 @@ import {
 } from 'lucide-react';
 import { SECURE_PRODUCTION_RULES } from '@/lib/constants/firebase-rules';
 import { realtimeSync } from '@/lib/db/realtime-sync';
+import {
+  getConfiguredRtdbUrl,
+  setConfiguredRtdbUrl,
+  getFirebaseAuthToken,
+  getFirebaseConsoleUrl,
+} from '@/lib/db/firebase-config';
+import { apiFetch } from '@/lib/api-client';
+import { ConfirmModal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 
 export interface ScanResult {
   timestamp: number;
@@ -62,18 +71,19 @@ export function DatabaseSecurity() {
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [showRulesPreview, setShowRulesPreview] = useState(false);
 
-  const defaultUrl = 'https://database-for-inventory-88e9f-default-rtdb.asia-southeast1.firebasedatabase.app';
+  const toast = useToast();
+  const [rtdbUrlInput, setRtdbUrlInput] = useState('');
+  const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
 
-  // Load saved secret if available from localStorage or sessionStorage
+  // Load saved secret and RTDB URL if available from config/storage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedToken = localStorage.getItem('pos_firebase_auth_token') || 
-                         localStorage.getItem('firebase_database_secret') || 
-                         sessionStorage.getItem('pos_firebase_auth_token') || '';
+      const savedToken = getFirebaseAuthToken();
       if (savedToken) {
         setDatabaseSecret(savedToken);
         setIsSecretSaved(true);
       }
+      setRtdbUrlInput(getConfiguredRtdbUrl());
     }
   }, []);
 
@@ -88,7 +98,23 @@ export function DatabaseSecurity() {
     setFixSuccess(false);
 
     try {
-      const baseUrl = defaultUrl.replace(/\/$/, '');
+      const baseUrl = (rtdbUrlInput || getConfiguredRtdbUrl()).replace(/\/$/, '');
+      if (!baseUrl) {
+        setScanResult({
+          timestamp: Date.now(),
+          databaseUrl: '',
+          canRead: false,
+          canWriteUnauthenticated: false,
+          isOpen: false,
+          isLocked: false,
+          isSecured: false,
+          securityScore: 0,
+          issues: ['Firebase Realtime Database URL is not configured (local offline mode active).'],
+          recommendations: ['Configure VITE_FIREBASE_RTDB_URL or enter your Firebase RTDB URL below to enable cloud rules inspection.'],
+        });
+        setScanning(false);
+        return;
+      }
       const issues: string[] = [];
       const recommendations: string[] = [];
 
@@ -176,8 +202,14 @@ export function DatabaseSecurity() {
 
     const start = performance.now();
     try {
+      const baseUrl = (rtdbUrlInput || getConfiguredRtdbUrl()).replace(/\/$/, '');
+      if (!baseUrl) {
+        throw new Error('Firebase Realtime Database URL is not configured. Please enter your RTDB URL or set VITE_FIREBASE_RTDB_URL.');
+      }
+      if (rtdbUrlInput.trim()) {
+        setConfiguredRtdbUrl(rtdbUrlInput.trim());
+      }
       // 1. Direct validation against Firebase RTDB REST API
-      const baseUrl = defaultUrl.replace(/\/$/, '');
       const probeRes = await fetch(`${baseUrl}/users.json?shallow=true&auth=${encodeURIComponent(secret)}`, {
         headers: { 'Cache-Control': 'no-cache' }
       });
@@ -218,23 +250,33 @@ export function DatabaseSecurity() {
   };
 
   const handleClearSecret = () => {
-    if (confirm('Sigurado ka bang nais mong tanggalin ang Secret Key sa browser ng device na ito?')) {
-      localStorage.removeItem('pos_firebase_auth_token');
-      localStorage.removeItem('firebase_database_secret');
-      sessionStorage.removeItem('pos_firebase_auth_token');
-      setDatabaseSecret('');
-      setIsSecretSaved(false);
-      setTestResult(null);
-      setFixSuccess(false);
-      realtimeSync.restart();
-      runScan();
-    }
+    setIsConfirmClearOpen(true);
+  };
+
+  const confirmClearSecret = () => {
+    localStorage.removeItem('pos_firebase_auth_token');
+    localStorage.removeItem('firebase_database_secret');
+    sessionStorage.removeItem('pos_firebase_auth_token');
+    setDatabaseSecret('');
+    setIsSecretSaved(false);
+    setTestResult(null);
+    setFixSuccess(false);
+    setIsConfirmClearOpen(false);
+    toast.success('Database secret cleared from this device.');
+    realtimeSync.restart();
+    runScan();
   };
 
   const handleTestConnection = async () => {
-    const secret = databaseSecret.trim() || localStorage.getItem('pos_firebase_auth_token') || '';
+    const secret = databaseSecret.trim() || getFirebaseAuthToken();
     if (!secret) {
       setFixError('Walang Secret Key na masusubukan. Mag-type o mag-save muna ng secret key.');
+      return;
+    }
+
+    const baseUrl = (rtdbUrlInput || getConfiguredRtdbUrl()).replace(/\/$/, '');
+    if (!baseUrl) {
+      setFixError('Firebase Realtime Database URL is not configured.');
       return;
     }
 
@@ -244,7 +286,6 @@ export function DatabaseSecurity() {
 
     const start = performance.now();
     try {
-      const baseUrl = defaultUrl.replace(/\/$/, '');
       const res = await fetch(`${baseUrl}/users.json?shallow=true&auth=${encodeURIComponent(secret)}`, {
         headers: { 'Cache-Control': 'no-cache' }
       });
@@ -281,7 +322,14 @@ export function DatabaseSecurity() {
     setFixError(null);
     setFixSuccess(false);
 
-    const secret = databaseSecret.trim() || localStorage.getItem('pos_firebase_auth_token') || '';
+    const secret = databaseSecret.trim() || getFirebaseAuthToken();
+    const baseUrl = (rtdbUrlInput || getConfiguredRtdbUrl()).replace(/\/$/, '');
+
+    if (!baseUrl) {
+      setFixError('Firebase Realtime Database URL is not configured. Enter your RTDB URL or set VITE_FIREBASE_RTDB_URL.');
+      setIsApplyingFix(false);
+      return;
+    }
 
     if (!secret) {
       setFixError('Database Secret required for 1-click automatic update. Alternatively, copy the Production Rules below and publish them in your Firebase Rules Console.');
@@ -300,7 +348,7 @@ export function DatabaseSecurity() {
 
     // Step 1: Direct Client-side REST Update (Runs 100% in browser, requires no server or .env file!)
     try {
-      const rulesUrl = `${defaultUrl.replace(/\/$/, '')}/.settings/rules.json?auth=${encodeURIComponent(secret)}`;
+      const rulesUrl = `${baseUrl}/.settings/rules.json?auth=${encodeURIComponent(secret)}`;
       const directRes = await fetch(rulesUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -320,12 +368,11 @@ export function DatabaseSecurity() {
     // Step 2: Fallback to server API if available
     if (!applied) {
       try {
-        const response = await fetch('/api/update-firebase-rules', {
+        const response = await apiFetch('/api/update-firebase-rules', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             secret,
-            databaseUrl: defaultUrl,
+            databaseUrl: baseUrl,
             rules: SECURE_PRODUCTION_RULES
           })
         });
@@ -644,7 +691,7 @@ export function DatabaseSecurity() {
           </div>
 
           <a
-            href="https://console.firebase.google.com/project/database-for-inventory-88e9f/settings/serviceaccounts/databasesecrets"
+            href={getFirebaseConsoleUrl('secrets')}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs font-black text-orange-600 dark:text-orange-400 hover:underline inline-flex items-center gap-1.5 shrink-0 bg-orange-50 dark:bg-orange-950/40 px-3.5 py-2 rounded-xl border border-orange-200 dark:border-orange-800"
@@ -655,6 +702,22 @@ export function DatabaseSecurity() {
 
         {/* Input & Activation Controls */}
         <div className="space-y-4">
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2">
+              Firebase Realtime Database URL
+            </label>
+            <input
+              type="url"
+              value={rtdbUrlInput}
+              onChange={(e) => {
+                setRtdbUrlInput(e.target.value);
+                setConfiguredRtdbUrl(e.target.value);
+              }}
+              placeholder="https://your-project-default-rtdb.firebasedatabase.app"
+              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-3 text-xs font-mono font-bold text-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+            />
+          </div>
+
           <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block">
             Firebase Realtime Database Secret Key
           </label>
@@ -840,7 +903,7 @@ export function DatabaseSecurity() {
           </div>
 
           <a
-            href="https://console.firebase.google.com/project/database-for-inventory-88e9f/database/realtime-database/rules"
+            href={getFirebaseConsoleUrl('rules')}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md"
@@ -869,6 +932,16 @@ export function DatabaseSecurity() {
           )}
         </AnimatePresence>
       </div>
+
+      <ConfirmModal
+        isOpen={isConfirmClearOpen}
+        onClose={() => setIsConfirmClearOpen(false)}
+        onConfirm={confirmClearSecret}
+        title="Remove Database Secret"
+        message="Sigurado ka bang nais mong tanggalin ang Secret Key sa browser ng device na ito?"
+        confirmText="Remove Secret"
+        variant="danger"
+      />
     </div>
   );
 }

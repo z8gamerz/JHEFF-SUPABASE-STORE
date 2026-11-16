@@ -3,6 +3,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Download } from 'lucide-react';
 import { auditService } from '@/lib/services/audit-service';
+import { sanitizeErrorString } from '@/lib/utils/error-tracker';
 
 interface Props {
   children: ReactNode;
@@ -38,9 +39,11 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
     try {
+      const safeMsg = sanitizeErrorString(error?.message || 'Unknown render error');
+      const safeStack = sanitizeErrorString(errorInfo.componentStack?.slice(0, 300) || 'unknown');
       auditService.log(
         'REACT_RENDER_CRASH',
-        `Error: ${error.message} | Component: ${errorInfo.componentStack?.slice(0, 300) || 'unknown'}`,
+        `Error: ${safeMsg} | Component: ${safeStack}`,
         'system'
       );
     } catch {}
@@ -59,9 +62,9 @@ export class ErrorBoundary extends Component<Props, State> {
     const report = {
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
-      errorMessage: this.state.error?.message,
-      errorStack: this.state.error?.stack,
-      componentStack: this.state.errorInfo?.componentStack,
+      errorMessage: sanitizeErrorString(this.state.error?.message || ''),
+      errorStack: sanitizeErrorString(this.state.error?.stack || ''),
+      componentStack: sanitizeErrorString(this.state.errorInfo?.componentStack || ''),
     };
 
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
@@ -97,7 +100,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             {this.state.error && (
               <div className="bg-gray-50 dark:bg-gray-800/80 p-3.5 rounded-xl text-left mb-6 overflow-x-auto text-xs font-mono text-red-600 dark:text-rose-400 border border-gray-100 dark:border-gray-700 max-h-32">
-                {this.state.error.message}
+                {sanitizeErrorString(this.state.error.message)}
               </div>
             )}
 

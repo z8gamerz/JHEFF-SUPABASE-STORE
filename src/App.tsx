@@ -7,6 +7,7 @@ import { ReceiptProvider } from '@/lib/context/receipt-context';
 import { StoreProvider } from '@/lib/hooks/use-store';
 import { OfflineIndicator } from '@/components/pwa/offline-indicator';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { ToastProvider } from '@/components/ui/toast';
 import { Loader2 } from 'lucide-react';
 
 // Lazy-loaded Pages for instant bundle delivery and minimal device memory usage
@@ -93,12 +94,14 @@ export default function App() {
             <AuthProvider>
               <StoreProvider>
                 <ReceiptProvider>
-                  <div className="min-h-screen w-full flex flex-col bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
-                    <Suspense fallback={<PageLoader />}>
-                      <AppContent />
-                    </Suspense>
-                    <OfflineIndicator />
-                  </div>
+                  <ToastProvider>
+                    <div className="min-h-screen w-full flex flex-col bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+                      <Suspense fallback={<PageLoader />}>
+                        <AppContent />
+                      </Suspense>
+                      <OfflineIndicator />
+                    </div>
+                  </ToastProvider>
                 </ReceiptProvider>
               </StoreProvider>
             </AuthProvider>

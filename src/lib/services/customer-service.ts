@@ -4,6 +4,8 @@ import { BaseService } from './base-service';
 import { Customer, CreditEntry, STORES, dbUtil } from '@/lib/db/idb';
 import { syncDb } from '@/lib/db/sync-queue';
 import { upstashRedis } from './redis-service';
+import { apiFetch } from '@/lib/api-client';
+import { roundCurrency } from '@/lib/utils/financial';
 
 class CustomerService extends BaseService<Customer> {
   constructor() {
@@ -49,7 +51,7 @@ class CustomerService extends BaseService<Customer> {
         total -= amt;
       }
     }
-    const finalBalance = Math.max(0, Math.round(total * 100) / 100);
+    const finalBalance = Math.max(0, roundCurrency(total));
     const currentUtang = Number(customer.totalUtang);
 
     if (isNaN(currentUtang) || Math.abs(currentUtang - finalBalance) > 0.001) {
@@ -96,7 +98,7 @@ class CustomerService extends BaseService<Customer> {
             total -= amt;
           }
         }
-        const finalBalance = Math.max(0, Math.round(total * 100) / 100);
+        const finalBalance = Math.max(0, roundCurrency(total));
         const currentUtang = Number(customer.totalUtang);
 
         if (isNaN(currentUtang) || Math.abs(currentUtang - finalBalance) > 0.001) {
@@ -156,9 +158,8 @@ class CustomerService extends BaseService<Customer> {
 
     // Auto-sync deletion to Upstash Redis in background
     upstashRedis.pushUtangRecord(updatedEntry).catch(() => {});
-    fetch('/api/utang-webhook', {
+    apiFetch('/api/utang-webhook', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete_record', entryId, customerId: target.customerId })
     }).catch(() => {});
 
@@ -206,8 +207,8 @@ class CustomerService extends BaseService<Customer> {
     if (!customer) return 0;
 
     const currentBalance = await this.recalculateCustomerBalance(customerId);
-    const safeTarget = Math.max(0, Math.round(Number(targetBalance) * 100) / 100);
-    const diff = safeTarget - currentBalance;
+    const safeTarget = Math.max(0, roundCurrency(Number(targetBalance)));
+    const diff = roundCurrency(safeTarget - currentBalance);
 
     if (Math.abs(diff) < 0.001) {
       return currentBalance;
@@ -219,7 +220,7 @@ class CustomerService extends BaseService<Customer> {
       id: crypto.randomUUID(),
       customerId,
       branchId: customer.branchId || 'main_branch',
-      amount: isIncrease ? Math.abs(diff) : -Math.abs(diff),
+      amount: isIncrease ? roundCurrency(Math.abs(diff)) : -roundCurrency(Math.abs(diff)),
       type: isIncrease ? 'credit' : 'payment',
       description: note || (isIncrease ? 'Balance Adjustment (Added Utang)' : 'Balance Settlement (Prior Period Cleared)'),
       timestamp: now,

@@ -1,14 +1,27 @@
 const STORAGE_KEY = 'pos_api_key';
 
 export function getPosApiKey(): string {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem(STORAGE_KEY) || '';
+  if (typeof window === 'undefined') {
+    return (typeof process !== 'undefined' ? process.env?.VITE_POS_API_KEY : '') || '';
+  }
+  const stored =
+    localStorage.getItem(STORAGE_KEY) ||
+    sessionStorage.getItem(STORAGE_KEY) ||
+    ((import.meta as any).env?.VITE_POS_API_KEY as string | undefined) ||
+    '';
+  return stored.trim();
 }
 
 export function setPosApiKey(key: string): void {
   if (typeof window === 'undefined') return;
-  if (!key) localStorage.removeItem(STORAGE_KEY);
-  else localStorage.setItem(STORAGE_KEY, key.trim());
+  const trimmed = key.trim();
+  if (!trimmed) {
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+  } else {
+    localStorage.setItem(STORAGE_KEY, trimmed);
+    sessionStorage.setItem(STORAGE_KEY, trimmed);
+  }
 }
 
 export function apiHeaders(extra?: HeadersInit): Headers {
