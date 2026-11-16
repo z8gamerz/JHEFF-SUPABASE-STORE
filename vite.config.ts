@@ -18,6 +18,13 @@ function apiDevProxyPlugin() {
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url?.split('?')[0];
+        if (url === '/healthz' || url === '/api/health') {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(JSON.stringify({ ok: true, status: 'healthy', mode: 'dev', timestamp: Date.now() }));
+          return;
+        }
         if (!url || !url.startsWith('/api/')) {
           next();
           return;

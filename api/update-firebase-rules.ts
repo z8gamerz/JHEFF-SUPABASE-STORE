@@ -80,6 +80,10 @@ export const SECURE_PRODUCTION_RULES = {
         '.write': "auth != null && !data.exists() && newData.hasChildren(['action', 'timestamp'])",
       },
     },
+    categories: {
+      '.read': true,
+      '.write': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+    },
     metadata: {
       '.read': true,
       '.write': "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",

@@ -26,8 +26,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Transaction } from '@/lib/db/idb';
 import { useEffect } from 'react';
 import Papa from 'papaparse';
+import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function TicketHistoryPage() {
+  return (
+    <AuthGuard>
+      <TicketHistoryContent />
+    </AuthGuard>
+  );
+}
+
+function TicketHistoryContent() {
   const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { isAdmin } = useAuth();
   const { transactions, loading } = useTransactions(currentBranchId || undefined);

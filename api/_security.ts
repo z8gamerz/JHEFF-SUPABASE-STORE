@@ -100,24 +100,52 @@ export function requireApiAuth(req: any, res: any): boolean {
   return true;
 }
 
+const MAX_RATE_STATE_ENTRIES = 5000;
+
+function pruneRateState(now: number): void {
+  if (rateState.size < MAX_RATE_STATE_ENTRIES) return;
+  for (const [key, entry] of rateState.entries()) {
+    if (entry.resetAt <= now) {
+      rateState.delete(key);
+    }
+  }
+  if (rateState.size >= MAX_RATE_STATE_ENTRIES) {
+    const oldestKey = rateState.keys().next().value;
+    if (oldestKey !== undefined) rateState.delete(oldestKey);
+  }
+}
+
 export function rateLimit(req: any, res: any, opts: { key: string; limit: number; windowMs: number }): boolean {
   const ip =
     (typeof req?.headers?.['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'].split(',')[0] : '') ||
+    req?.ip ||
     req?.socket?.remoteAddress ||
     'unknown';
   const k = `${opts.key}:${String(ip).trim()}`;
   const now = Date.now();
-  const cur = rateState.get(k);
+  pruneRateState(now);
+
+  let cur = rateState.get(k);
   if (!cur || cur.resetAt <= now) {
-    rateState.set(k, { count: 1, resetAt: now + opts.windowMs });
-    return true;
+    cur = { count: 1, resetAt: now + opts.windowMs };
+    rateState.set(k, cur);
+  } else {
+    cur.count += 1;
   }
-  cur.count += 1;
+
+  const remaining = Math.max(0, opts.limit - cur.count);
+  const resetSeconds = Math.max(1, Math.ceil((cur.resetAt - now) / 1000));
+  res.setHeader('X-RateLimit-Limit', String(opts.limit));
+  res.setHeader('X-RateLimit-Remaining', String(remaining));
+  res.setHeader('X-RateLimit-Reset', String(Math.ceil(cur.resetAt / 1000)));
+
   if (cur.count > opts.limit) {
+    res.setHeader('Retry-After', String(resetSeconds));
     res.status(429).json({
       success: false,
       error: 'Too many requests. Try again later.',
       code: 'RATE_LIMITED',
+      retryAfterSeconds: resetSeconds,
     });
     return false;
   }

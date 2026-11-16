@@ -88,6 +88,16 @@ export const SECURE_PRODUCTION_RULES = {
       "$auditId": {
         ".write": "auth != null && !data.exists() && newData.hasChildren(['action', 'timestamp'])"
       }
+    },
+
+    // 12. Product Categories & Metadata - Admin only writes
+    categories: {
+      ".read": true,
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+    },
+    metadata: {
+      ".read": true,
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
     }
   }
 };

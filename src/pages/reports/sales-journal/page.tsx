@@ -19,6 +19,7 @@ import { motion } from 'motion/react';
 import { format, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import Papa from 'papaparse';
 import { roundCurrency } from '@/lib/utils/financial';
+import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function SalesJournalPage() {
   const { transactions, loading } = useTransactions();
@@ -79,7 +80,8 @@ export default function SalesJournalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
+    <AuthGuard allowedRoles={['admin']}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
       <Header />
       
       <main className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto w-full">
@@ -229,6 +231,7 @@ export default function SalesJournalPage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

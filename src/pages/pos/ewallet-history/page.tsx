@@ -25,8 +25,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { EWalletTransaction } from '@/lib/db/idb';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function EWalletHistoryPage() {
+  return (
+    <AuthGuard>
+      <EWalletHistoryContent />
+    </AuthGuard>
+  );
+}
+
+function EWalletHistoryContent() {
   const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { isAdmin } = useAuth();
   const { transactions, loading } = useEWallet(currentBranchId || undefined);

@@ -83,9 +83,13 @@ test('rateLimit blocks requests exceeding threshold with 429', () => {
   const res3 = createMockRes();
 
   assert.equal(rateLimit(req, res1, { key: 'test-rl', limit: 2, windowMs: 60_000 }), true);
+  assert.equal(res1.headers['x-ratelimit-limit'], '2');
+  assert.equal(res1.headers['x-ratelimit-remaining'], '1');
   assert.equal(rateLimit(req, res2, { key: 'test-rl', limit: 2, windowMs: 60_000 }), true);
+  assert.equal(res2.headers['x-ratelimit-remaining'], '0');
   assert.equal(rateLimit(req, res3, { key: 'test-rl', limit: 2, windowMs: 60_000 }), false);
   assert.equal(res3.statusCode, 429);
+  assert.ok(Number(res3.headers['retry-after']) >= 1);
 });
 
 test('requireApiAuth fails closed with 503 when POS_API_SECRET is missing and 401 when mismatched', () => {

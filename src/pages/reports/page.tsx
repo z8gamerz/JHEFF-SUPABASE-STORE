@@ -32,6 +32,14 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { EmailReportModal } from '@/components/reports/email-report-modal';
 
 export default function ReportsPage() {
+  return (
+    <AuthGuard allowedRoles={['admin']}>
+      <ReportsContent />
+    </AuthGuard>
+  );
+}
+
+function ReportsContent() {
   const { branches, currentBranchId, loading: loadingBranches } = useBranches();
   const { isCashier, loading: authLoading } = useAuth();
   const { store } = useStore();
@@ -132,8 +140,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
         <Header />
         
         <div className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto w-full">
@@ -323,7 +330,6 @@ export default function ReportsPage() {
           expenses={expenses}
           customers={customers}
         />
-      </div>
-    </AuthGuard>
+    </div>
   );
 }

@@ -19,8 +19,17 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 
 import { useBranches } from '@/lib/hooks/use-branches';
+import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function DailySummaryPage() {
+  return (
+    <AuthGuard>
+      <DailySummaryContent />
+    </AuthGuard>
+  );
+}
+
+function DailySummaryContent() {
   const { currentBranchId, currentBranch, loading: loadingBranches, isBranchAuthorized } = useBranches();
   const { loading, getDailySummary } = useReports(currentBranchId || undefined);
   const { isAdmin, isCashier } = useAuth();

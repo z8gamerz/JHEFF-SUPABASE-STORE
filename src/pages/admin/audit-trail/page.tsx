@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/toast';
+import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function AuditTrailPage() {
   const { 
@@ -82,7 +83,8 @@ export default function AuditTrailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors">
+    <AuthGuard allowedRoles={['admin']}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans transition-colors">
       <Header />
       
       <div className="p-3 sm:p-6 lg:p-8 w-full">
@@ -365,6 +367,7 @@ export default function AuditTrailPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

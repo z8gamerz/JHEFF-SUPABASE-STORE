@@ -62,6 +62,14 @@ interface CustomerSummaryWithMatch {
 }
 
 export default function CreditReportPage() {
+  return (
+    <AuthGuard allowedRoles={['admin']}>
+      <CreditReportContent />
+    </AuthGuard>
+  );
+}
+
+function CreditReportContent() {
   const { branches, currentBranchId, loading: loadingBranches } = useBranches();
   const { isCashier, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -558,8 +566,7 @@ export default function CreditReportPage() {
   }
 
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans print:bg-white transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans print:bg-white transition-colors">
         <div className="print:hidden">
           <Header />
         </div>
@@ -1471,7 +1478,6 @@ export default function CreditReportPage() {
           confirmText="Delete Debt"
           variant="danger"
         />
-      </div>
-    </AuthGuard>
+    </div>
   );
 }
