@@ -10,6 +10,7 @@ const API_ROUTES: Record<string, string> = {
   '/api/test-smtp': '/api/test-smtp.ts',
   '/api/send-report-email': '/api/send-report-email.ts',
   '/api/update-firebase-rules': '/api/update-firebase-rules.ts',
+  '/api/supabase-sync': '/api/supabase-sync.ts',
 };
 
 function apiDevProxyPlugin() {

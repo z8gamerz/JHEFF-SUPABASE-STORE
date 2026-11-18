@@ -103,13 +103,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Check if cloud sync failed due to Firebase rules (Unauthorized 401)
+    // Check if cloud sync failed due to database rules/RLS (Unauthorized 401/403)
     const isFirebaseUnauthorized = typeof window !== 'undefined' && localStorage.getItem('firebase_sync_error') === 'Unauthorized';
+    const isSupabaseUnauthorized = typeof window !== 'undefined' && localStorage.getItem('supabase_sync_error') === 'Unauthorized';
 
     if (!foundUser) {
       if (isFirebaseUnauthorized) {
         throw new Error(
           'Firebase Database Restricted (Permission Denied). Naka-lock mode ang database sa Firebase Console kaya hindi ma-download ang user account sa bagong device na ito. Paki-publish ang rules sa Firebase Console upang makapasok.'
+        );
+      }
+      if (isSupabaseUnauthorized) {
+        throw new Error(
+          'Supabase Database Restricted (RLS Permission Denied). Pakisuri ang Supabase Auth session o Server Proxy configuration upang ma-download ang user account.'
         );
       }
 

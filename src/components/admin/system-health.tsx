@@ -7,6 +7,7 @@ import { auditService } from '@/lib/services/audit-service';
 import { AuditLog } from '@/lib/db/idb';
 import { realtimeSync, RealtimeStatus } from '@/lib/db/realtime-sync';
 import { pullSync, processQueue } from '@/lib/db/sync-queue';
+import { CloudProvider, getCloudProvider } from '@/lib/db/cloud-provider';
 import { 
   ShieldCheck, 
   Database, 
@@ -28,11 +29,14 @@ import {
   Radio,
   Zap,
   Send,
-  Key
+  Key,
+  FileSpreadsheet,
+  ChevronDown
 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/modal';
 import { qstashService, QStashStatus, QStashPublishResult } from '@/lib/services/qstash-service';
 import { apiFetch } from '@/lib/api-client';
+import { SUPABASE_TABLE_EXPORTS } from '@/lib/utils/supabase-csv-export';
 
 export function SystemHealthDashboard() {
   const { user, isAdmin } = useAuth();
@@ -40,9 +44,13 @@ export function SystemHealthDashboard() {
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [exportingTable, setExportingTable] = useState<string | null>(null);
+  const [showIndividualCsvs, setShowIndividualCsvs] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
   const [streamStatus, setStreamStatus] = useState<RealtimeStatus>(() => realtimeSync.getStatus());
+  const [cloudProvider, setCloudProviderState] = useState<CloudProvider>(() => getCloudProvider());
   const [restoreFeedback, setRestoreFeedback] = useState<string | null>(null);
   const [errorFeedback, setErrorFeedback] = useState<string | null>(null);
   const [pendingRestorePayload, setPendingRestorePayload] = useState<BackupPayload | null>(null);
@@ -148,7 +156,14 @@ export function SystemHealthDashboard() {
 
   useEffect(() => {
     const unsub = realtimeSync.subscribeStatus((st) => setStreamStatus(st));
-    return () => unsub();
+    const onProviderChange = (e: any) => {
+      setCloudProviderState(e?.detail?.provider || getCloudProvider());
+    };
+    window.addEventListener('pos_cloud_provider_changed', onProviderChange);
+    return () => {
+      unsub();
+      window.removeEventListener('pos_cloud_provider_changed', onProviderChange);
+    };
   }, []);
 
   const loadData = async () => {
@@ -188,6 +203,35 @@ export function SystemHealthDashboard() {
       setErrorFeedback(`Export failed: ${err.message}`);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleExportCsvZip = async () => {
+    setIsExportingCsv(true);
+    setRestoreFeedback(null);
+    setErrorFeedback(null);
+    try {
+      const { tableCount, totalRows } = await backupService.downloadSupabaseCsvZip();
+      setRestoreFeedback(
+        `Downloaded ${tableCount} Supabase-ready CSV files (${totalRows} total rows) inside a ZIP archive. Upload files 01 through 14 in order in Supabase Table Editor.`
+      );
+    } catch (err: any) {
+      setErrorFeedback(`CSV export failed: ${err.message}`);
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  const handleExportSingleTableCsv = async (tableName: string) => {
+    setExportingTable(tableName);
+    setErrorFeedback(null);
+    try {
+      const count = await backupService.downloadSingleTableCsv(tableName);
+      setRestoreFeedback(`Downloaded ${tableName}.csv (${count} rows) formatted for Supabase.`);
+    } catch (err: any) {
+      setErrorFeedback(`CSV export failed for ${tableName}: ${err.message}`);
+    } finally {
+      setExportingTable(null);
     }
   };
 
@@ -484,11 +528,15 @@ export function SystemHealthDashboard() {
           <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
             <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Direct Push</p>
             <p className="font-black text-gray-900 dark:text-white text-sm mt-0.5">Instant Parallel HTTP</p>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Writes push immediately to RTDB</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              {cloudProvider === 'supabase' ? 'Writes push immediately to Supabase' : 'Writes push immediately to RTDB'}
+            </p>
           </div>
           <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
-            <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Inbound Webhook</p>
-            <p className="font-black text-gray-900 dark:text-white text-sm mt-0.5">Firebase SSE Stream</p>
+            <p className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Inbound Stream</p>
+            <p className="font-black text-gray-900 dark:text-white text-sm mt-0.5">
+              {cloudProvider === 'supabase' ? 'Supabase Realtime Channel' : 'Firebase SSE Stream'}
+            </p>
             <p className="text-gray-500 dark:text-gray-400 mt-1">Automatic real-time push to other devices</p>
           </div>
           <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
@@ -500,18 +548,27 @@ export function SystemHealthDashboard() {
       </div>
 
       {/* Disaster Recovery & Backup Panel */}
-      <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 shadow-sm space-y-5">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div>
             <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
               <Database className="w-6 h-6 text-orange-600" />
               Disaster Recovery &amp; System Backup
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
-              Export complete store records, customer ledgers, and transactions, or restore from a verified backup file.
+              Export complete store records as JSON backup or Supabase-ready CSVs (with snake_case columns &amp; FK import order), or restore from JSON.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleExportCsvZip}
+              disabled={isExportingCsv}
+              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl flex items-center gap-2 text-xs shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isExportingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+              Export All CSVs for Supabase (.zip)
+            </button>
             <button
               type="button"
               onClick={handleExportBackup}
@@ -527,6 +584,40 @@ export function SystemHealthDashboard() {
               <input type="file" accept=".json" onChange={handleFileSelect} className="hidden" />
             </label>
           </div>
+        </div>
+
+        <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+          <button
+            type="button"
+            onClick={() => setShowIndividualCsvs((prev) => !prev)}
+            className="text-xs font-bold text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1.5 cursor-pointer"
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform ${showIndividualCsvs ? 'rotate-180' : ''}`} />
+            {showIndividualCsvs ? 'Hide individual table CSV downloads' : 'Download individual Supabase CSV tables (01–14)'}
+          </button>
+
+          {showIndividualCsvs && (
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {SUPABASE_TABLE_EXPORTS.map((spec) => (
+                <button
+                  key={spec.tableName}
+                  type="button"
+                  onClick={() => handleExportSingleTableCsv(spec.tableName)}
+                  disabled={exportingTable === spec.tableName}
+                  className="px-3 py-2.5 bg-gray-50 hover:bg-emerald-50 dark:bg-gray-800/70 dark:hover:bg-emerald-950/50 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 disabled:opacity-50"
+                >
+                  <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate">
+                    {String(spec.order).padStart(2, '0')}. {spec.tableName}
+                  </span>
+                  {exportingTable === spec.tableName ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

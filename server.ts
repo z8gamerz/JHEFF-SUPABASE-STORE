@@ -8,6 +8,7 @@ import utangWebhookHandler from './api/utang-webhook.ts';
 import testSmtpHandler from './api/test-smtp.ts';
 import sendReportEmailHandler from './api/send-report-email.ts';
 import updateFirebaseRulesHandler from './api/update-firebase-rules.ts';
+import supabaseSyncHandler from './api/supabase-sync.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,9 @@ app.all('/api/send-report-email', (req, res) => {
 });
 app.all('/api/update-firebase-rules', (req, res) => {
   void dispatchApiHandler(updateFirebaseRulesHandler, req, res);
+});
+app.all('/api/supabase-sync', (req, res) => {
+  void dispatchApiHandler(supabaseSyncHandler, req, res);
 });
 
 app.use('/api', (_req, res) => {

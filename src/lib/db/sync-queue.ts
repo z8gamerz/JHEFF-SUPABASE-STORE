@@ -3,6 +3,12 @@
 import { dbUtil, STORES, SyncAction, StoreName } from './idb';
 import { realtimeSync } from './realtime-sync';
 import { getConfiguredRtdbUrl, getFirebaseAuthToken } from './firebase-config';
+import { getCloudProvider, isCloudSyncConfigured } from './cloud-provider';
+import {
+  supabaseClearStores,
+  supabasePullStore,
+  supabasePushDirect,
+} from './supabase-sync';
 
 /**
  * [SaaS ARCHITECT NOTE]
@@ -71,6 +77,15 @@ export async function pushDirect(
     return false;
   }
 
+  if (getCloudProvider() === 'supabase') {
+    const ok = await supabasePushDirect(store, key, payload, isDelete);
+    if (ok) {
+      realtimeSync.broadcastLocalChange(store, key, payload);
+      return true;
+    }
+    return false;
+  }
+
   const BASE_URL = getRtdbUrl();
   if (!BASE_URL) {
     return false;
@@ -125,7 +140,7 @@ export async function queueAction(
     await dbUtil.addItem(STORES.SYNC_QUEUE, action);
 
     // Trigger background sync if online and configured
-    if (typeof window !== 'undefined' && window.navigator.onLine && getRtdbUrl()) {
+    if (typeof window !== 'undefined' && window.navigator.onLine && isCloudSyncConfigured()) {
       processQueue();
     }
   } catch (error) {
@@ -152,8 +167,11 @@ export async function processQueue(): Promise<void> {
     return;
   }
 
+  const provider = getCloudProvider();
   const BASE_URL = getRtdbUrl();
-  if (!BASE_URL) {
+  if (provider === 'supabase') {
+    if (!isCloudSyncConfigured()) return;
+  } else if (!BASE_URL) {
     return;
   }
 
@@ -185,6 +203,29 @@ export async function processQueue(): Promise<void> {
 
       if ((action.retryCount || 0) >= 3 && store === STORES.AUDIT_LOGS) {
         if (action.id) await markAsSynced(action.id);
+        continue;
+      }
+
+      if (provider === 'supabase') {
+        try {
+          const ok = await supabasePushDirect(store, key, payload, type === 'DELETE');
+          if (ok) {
+            hasSuccess = true;
+            if (action.id) {
+              await markAsSynced(action.id);
+            }
+          } else {
+            const updated = computeFailedActionUpdate(action, 'Supabase upsert rejected', Date.now());
+            await dbUtil.updateItem(STORES.SYNC_QUEUE, updated);
+          }
+        } catch (reqError: any) {
+          const updated = computeFailedActionUpdate(
+            action,
+            reqError?.message || 'Supabase request failed',
+            Date.now()
+          );
+          await dbUtil.updateItem(STORES.SYNC_QUEUE, updated);
+        }
         continue;
       }
 
@@ -249,6 +290,10 @@ export async function processQueue(): Promise<void> {
 export async function pullStore(store: StoreName): Promise<any[]> {
   if (typeof window !== 'undefined' && !window.navigator.onLine) {
     return dbUtil.getItems<any>(store);
+  }
+
+  if (getCloudProvider() === 'supabase') {
+    return supabasePullStore(store);
   }
 
   const BASE_URL = getRtdbUrl();
@@ -316,7 +361,7 @@ export async function pullSync(): Promise<void> {
     return;
   }
 
-  if (!getRtdbUrl()) {
+  if (!isCloudSyncConfigured()) {
     return;
   }
 
@@ -441,10 +486,13 @@ export async function clearDatabaseAll(): Promise<void> {
     }
   }
 
+  const provider = getCloudProvider();
   const BASE_URL = getRtdbUrl();
   const authQuery = getAuthQuery();
 
-  if (BASE_URL && typeof window !== 'undefined' && window.navigator.onLine) {
+  if (provider === 'supabase' && typeof window !== 'undefined' && window.navigator.onLine) {
+    await supabaseClearStores([...storesToClear, STORES.BRANCHES]);
+  } else if (BASE_URL && typeof window !== 'undefined' && window.navigator.onLine) {
     for (const store of storesToClear) {
       try {
         const url = `${BASE_URL}/${store}.json${authQuery}`;
@@ -459,7 +507,7 @@ export async function clearDatabaseAll(): Promise<void> {
     await dbUtil.clearStore(STORES.BRANCHES);
     localStorage.removeItem('sarisari_current_branch_id');
 
-    if (BASE_URL && typeof window !== 'undefined' && window.navigator.onLine) {
+    if (provider === 'firebase' && BASE_URL && typeof window !== 'undefined' && window.navigator.onLine) {
       await fetch(`${BASE_URL}/${STORES.BRANCHES}.json${authQuery}`, { method: 'DELETE' });
     }
   } catch (e) {

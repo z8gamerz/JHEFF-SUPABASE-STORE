@@ -2,6 +2,8 @@
 
 import { dbUtil, STORES, StoreName } from './idb';
 import { getConfiguredRtdbUrl, getFirebaseAuthToken } from './firebase-config';
+import { getCloudProvider, getSupabaseMode } from './cloud-provider';
+import { subscribeSupabaseRealtime } from './supabase-sync';
 
 /**
  * Realtime Webhook & SSE Stream Manager
@@ -19,6 +21,7 @@ interface RealtimeListener {
 
 class RealtimeSyncManager {
   private eventSource: EventSource | null = null;
+  private supabaseUnsubscribe: (() => void) | null = null;
   private status: RealtimeStatus = 'disconnected';
   private statusListeners = new Set<(status: RealtimeStatus) => void>();
   private dataListeners = new Map<string, RealtimeListener>();
@@ -170,6 +173,12 @@ class RealtimeSyncManager {
       this.eventSource.close();
       this.eventSource = null;
     }
+    if (this.supabaseUnsubscribe) {
+      try {
+        this.supabaseUnsubscribe();
+      } catch {}
+      this.supabaseUnsubscribe = null;
+    }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -187,6 +196,28 @@ class RealtimeSyncManager {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
+    }
+    if (this.supabaseUnsubscribe) {
+      try {
+        this.supabaseUnsubscribe();
+      } catch {}
+      this.supabaseUnsubscribe = null;
+    }
+
+    if (getCloudProvider() === 'supabase') {
+      const mode = getSupabaseMode();
+      const unsub = subscribeSupabaseRealtime({
+        onStatus: (st) => this.setStatus(st),
+        onItemChange: (store, key, item) => {
+          this.notifyDataListeners(store, key, item);
+        },
+      });
+      this.supabaseUnsubscribe = unsub;
+      // In server-proxy mode without a browser anon key, treat proxy sync as online
+      if (mode === 'proxy' && this.status === 'disconnected') {
+        this.setStatus('connected');
+      }
+      return;
     }
 
     const baseUrl = this.getBaseUrl();
@@ -253,6 +284,12 @@ class RealtimeSyncManager {
     // Every 30 seconds verify connection health
     this.heartbeatTimer = setInterval(() => {
       if (this.isStarted && typeof window !== 'undefined' && window.navigator.onLine) {
+        if (getCloudProvider() === 'supabase') {
+          if (this.status === 'error' || (this.status === 'disconnected' && !this.supabaseUnsubscribe)) {
+            this.connect();
+          }
+          return;
+        }
         if (!this.eventSource || this.eventSource.readyState === EventSource.CLOSED) {
           console.log('[RealtimeSync] Heartbeat detected closed connection, reconnecting...');
           this.connect();

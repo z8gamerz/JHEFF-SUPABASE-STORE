@@ -40,6 +40,7 @@ import {
 import { apiFetch } from '@/lib/api-client';
 import { ConfirmModal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
+import { CloudProviderCard } from './cloud-provider-card';
 
 export interface ScanResult {
   timestamp: number;
@@ -405,6 +406,8 @@ export function DatabaseSecurity() {
 
   return (
     <div className="space-y-8">
+      <CloudProviderCard />
+
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-gray-900 to-slate-900 text-white rounded-[2.5rem] p-8 md:p-10 border border-gray-800 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />

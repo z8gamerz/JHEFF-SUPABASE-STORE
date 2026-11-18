@@ -2,6 +2,12 @@
 
 import { dbUtil, STORES, StoreName } from '@/lib/db/idb';
 import { auditService } from './audit-service';
+import {
+  SUPABASE_TABLE_EXPORTS,
+  serializeTableToSupabaseCsv,
+  buildSupabaseImportReadme,
+  createZipBytes,
+} from '@/lib/utils/supabase-csv-export';
 
 export interface BackupPayload {
   version: number;
@@ -19,6 +25,17 @@ export interface RestoreResult {
 }
 
 class BackupService {
+  private triggerBlobDownload(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   /**
    * Generates a complete JSON backup of all IndexedDB tables
    */
@@ -66,15 +83,65 @@ class BackupService {
     const backup = await this.generateBackup();
     const jsonStr = JSON.stringify(backup, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-    link.href = url;
-    link.download = `sari-pos-backup-${dateStr}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    this.triggerBlobDownload(blob, `sari-pos-backup-${dateStr}.json`);
+  }
+
+  /**
+   * Downloads all 14 Supabase-ready CSV files bundled in a single ZIP archive
+   * ordered by foreign-key dependency (01_store_info.csv -> 14_metadata.csv).
+   */
+  async downloadSupabaseCsvZip(): Promise<{ tableCount: number; totalRows: number }> {
+    const files: Array<{ name: string; content: string }> = [];
+    const counts: Record<string, number> = {};
+    let totalRows = 0;
+
+    for (const spec of SUPABASE_TABLE_EXPORTS) {
+      let rows: Record<string, any>[] = [];
+      try {
+        rows = await dbUtil.getItems<Record<string, any>>(spec.storeName);
+      } catch (err) {
+        console.warn(`Could not export store ${spec.storeName} to CSV:`, err);
+      }
+      counts[spec.tableName] = rows.length;
+      totalRows += rows.length;
+      files.push({
+        name: spec.fileName,
+        content: serializeTableToSupabaseCsv(spec, rows),
+      });
+    }
+
+    files.unshift({
+      name: 'README_SUPABASE_IMPORT.txt',
+      content: buildSupabaseImportReadme(counts),
+    });
+
+    const zipBytes = createZipBytes(files);
+    const blob = new Blob([zipBytes.buffer as ArrayBuffer], { type: 'application/zip' });
+    const dateStr = new Date().toISOString().slice(0, 10);
+    this.triggerBlobDownload(blob, `sari-pos-supabase-csv-${dateStr}.zip`);
+
+    await auditService.log(
+      'BACKUP_EXPORT_CSV',
+      `Exported ${totalRows} records across ${SUPABASE_TABLE_EXPORTS.length} Supabase CSV files`
+    );
+
+    return { tableCount: SUPABASE_TABLE_EXPORTS.length, totalRows };
+  }
+
+  /**
+   * Downloads a single Supabase-ready CSV file for a specific table.
+   */
+  async downloadSingleTableCsv(tableName: string): Promise<number> {
+    const spec = SUPABASE_TABLE_EXPORTS.find((s) => s.tableName === tableName);
+    if (!spec) {
+      throw new Error(`Unknown export table: ${tableName}`);
+    }
+    const rows = await dbUtil.getItems<Record<string, any>>(spec.storeName).catch(() => []);
+    const csv = serializeTableToSupabaseCsv(spec, rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    this.triggerBlobDownload(blob, spec.fileName);
+    return rows.length;
   }
 
   /**
